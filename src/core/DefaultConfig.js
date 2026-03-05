@@ -14,6 +14,7 @@ function DefaultConfig() {
     ],
     currentAi: "default",
     outputAiResult: false,
+    maxIterations: 10, // ai完成工作流的最大迭代次数
     plugins: [],
     extensions: [],
     file: {

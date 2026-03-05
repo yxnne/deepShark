@@ -2,8 +2,8 @@
 const BaseAIService = require('./BaseAIService');
 
 class DeepSeekService extends BaseAIService {
-  constructor() {
-    super();
+  constructor(aiCli) {
+    super(aiCli);
     this.type = 'deepseek';
   }
 }

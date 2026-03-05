@@ -1,8 +1,6 @@
 const OllamaService = require("./ai-services/OllamaService");
 const DeepSeekService = require("./ai-services/DeepSeekService");
 const OpenaiService = require("./ai-services/OpenaiService");
-const AiResultParser = require("./AiResultParser");
-const PluginManager = require("./plugins/PluginManager");
 const ExtensionManager = require("./extends/ExtensionManager");
 const readline = require("readline");
 const { logError } = require("./utils");
@@ -10,6 +8,8 @@ const { logError } = require("./utils");
 class AICLI {
   constructor(config) {
     this.config = config;
+    this.aiService = null;
+    this.extensionManager = null;
     this.initialize();
   }
   // 解析配置文件
@@ -30,66 +30,19 @@ class AICLI {
     
     const service = currentAiConfig?.type || "ollama";
     if (service === "deepseek") {
-      this.aiService = new DeepSeekService();
+      this.aiService = new DeepSeekService(this);
     } else if (service === "openai") {
-      this.aiService = new OpenaiService();
+      this.aiService = new OpenaiService(this);
     } else {
-      this.aiService = new OllamaService();
-    }
-    this.aiResultParser = new AiResultParser(this);
-    // 初始化插件管理器
-    this.pluginManager = new PluginManager(this);
-    // 加载配置中的插件
-    if (this.config.plugins) {
-      this.pluginManager.parsePlugin(this.config.plugins);
+      this.aiService = new OllamaService(this);
     }
     // 初始化扩展
     this.extensionManager = new ExtensionManager(this);
-    if (this.config.extends) {
-      this.extensionManager.parseExtend(this.config.extends);
-    }
-    // 初始化扩展
-    this.extensionManager.init();
-    // 程序启动后执行插件的初始化生命周期函数
-    this.pluginManager.onInitialize();
   }
   // 单轮对话
   async run(userPrompt) {
     try {
-      // AI请求前的钩子
-      const messages = this.aiService.initPrompt(userPrompt);
-      const promptResult = await this.pluginManager.onBeforeAIRequest(messages);
-      const response = await this.aiService.generateResponse(promptResult);
-      // AI请求后的钩子
-      const processedResponse =
-        await this.pluginManager.onAfterAIRequest(response);
-      const steps = this._parseResponse(processedResponse);
-
-      // 解析完成后的钩子
-      const processedSteps = await this.pluginManager.onAfterParse(steps);
-
-      if (processedSteps.length > 1) {
-        console.log("Executing steps...");
-      }
-
-      // 执行步骤（这里需要修改AiResultParser来支持插件钩子）
-      await this.aiResultParser.executeSteps(
-        processedSteps,
-        this.pluginManager,
-      );
-
-      if (!(processedSteps.length === 1 && processedSteps[0].type === 1)) {
-        console.log("Execution completed.");
-      }
-
-      this.aiService.conversationHistory.push({
-        role: "user",
-        content: userPrompt,
-      });
-      this.aiService.conversationHistory.push({
-        role: "assistant",
-        content: processedResponse,
-      });
+      await this.aiService.agentWorkflow(userPrompt)
     } catch (error) {
       logError(error.stack);
       throw error;

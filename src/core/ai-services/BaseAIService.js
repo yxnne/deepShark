@@ -1,188 +1,159 @@
-const path = require("path");
-const { OpenAI } = require("openai");
-const os = require("os");
-const { loading } = require("../utils");
-const fs = require("fs-extra");
+const { OpenAI } = require('openai')
+const { loading, logInfo, logError } = require('../utils')
 
 class BaseAIService {
-  constructor() {
-    const userConfigPath = path.join(os.homedir(), ".ai-cmd.config.js");
-    const config = require(userConfigPath);
-    this.name = config.currentAi || "I";
+  constructor(aiCli) {
+    this.aiCli = aiCli
+    this.config = aiCli.config
+    this.name = this.config.currentAi || 'I'
     // Get current AI configuration
-    if (Array.isArray(config.ai)) {
-      const currentName = config.currentAi || "default";
-      const currentAiConfig = config.ai.find(cfg => cfg.name === currentName);
-      this.config = currentAiConfig || config.ai[0];
+    if (Array.isArray(this.config.ai)) {
+      const currentName = this.config.currentAi || 'default'
+      const currentAiConfig = this.config.ai.find(
+        (cfg) => cfg.name === currentName,
+      )
+      this.aiConfig = currentAiConfig || this.config.ai[0]
     } else {
       // Legacy configuration format
-      this.config = config.ai;
+      this.aiConfig = this.config.ai
     }
-    
-    this.conversationHistory = [];
-    this.createClient();
-    this.baseFunctionDescription = "";
+
+    this.createClient()
   }
 
   createClient() {
     this.client = new OpenAI({
-      baseURL: this.config.baseUrl,
-      apiKey: this.config.apiKey || "",
-    });
+      baseURL: this.aiConfig.baseUrl,
+      apiKey: this.aiConfig.apiKey || '',
+    })
   }
 
-  initPrompt(prompt) {
-    const messages = [];
-    messages.push({
-      role: "system",
-      content:`
-You are a precise, instruction-following execution assistant with zero extra output.
-You only do exactly what is required, and you only output in the given JSON format.
-CRITICAL: Your response MUST be a valid JSON array ONLY, with no additional text, explanations, formatting, markdown, code blocks, or any other content. Your entire response must consist solely of the JSON array.
-DO NOT include any markdown, code fences, comments, or any text outside the JSON array.
-Your output must be parsable directly as JSON.
+  // 工作流循环
+  async agentWorkflow(goal) {
+    const extensionManager = this.aiCli.extensionManager
+    const { toolDescriptions, toolFunctions } = extensionManager.extensions
+    const currentDir = process.cwd();
+    const osType = process.platform;
+    
+    const messages = [
+      {
+        role: 'system',
+        content: `You are an AI assistant that can use tools to accomplish tasks. The current working directory is ${currentDir}, and the operating system is ${osType}. Use the available tools to achieve the user's goal.
 
-Role & Capabilities:
-- You have system-level access to file operations and command execution.
-- You can directly call built-in functions, system commands, and Node.js code.
-- You are also a professional text processing assistant: translation, summarization, extraction, data query, polishing.
-- You answer questions and process text data accurately.
-          `,
-    });
+IMPORTANT: When you have successfully completed the task, you MUST NOT call any more tools. Simply provide a summary of what was done in your response content and stop.`
+      },
+      {
+        role: 'user',
+        content: goal
+      }
+    ]
 
-    for (const message of this.conversationHistory) {
-      messages.push({
-        role: message.role,
-        content: message.content,
-      });
+    let maxIterations = this.config.maxIterations || 10
+    let loadingStop
+    try {
+      while (maxIterations-- > 0) {
+        loadingStop = loading('Thinking...')
+        const response = await this.client.chat.completions.create({
+          model: this.aiConfig.model,
+          messages: messages,
+          tools: toolDescriptions,
+          tool_choice: 'auto',
+          temperature: this.aiConfig.temperature,
+          max_tokens: this.aiConfig.maxTokens,
+        })
+
+        const message = response.choices[0].message
+        messages.push(message)
+        loadingStop(`${this.name} have finished thinking.`)
+        loadingStop = null
+        logInfo(message.content)
+
+        // 检查是否是任务完成的总结响应（没有工具调用且有内容）
+        if (!message.tool_calls && message.content) {
+          break
+        }
+
+        if (message.tool_calls) {
+          for (const toolCall of message.tool_calls) {
+            const { id, function: func } = toolCall
+            const { name, arguments: args } = func
+            let toolFunction = toolFunctions[name]
+            logInfo(`Calling tool ${toolCall.function.name}`)
+            if (toolFunction) {
+              try {
+                const parsedArgs = JSON.parse(args)
+                let result = await toolFunction(...Object.values(parsedArgs))
+                if (!result) {
+                  result = 'function executed successfully!'
+                }
+                messages.push({
+                  role: 'tool',
+                  tool_call_id: id,
+                  content: JSON.stringify(result)
+                })
+              } catch (error) {
+                messages.push({
+                  role: 'tool',
+                  tool_call_id: id,
+                  content: JSON.stringify({ error: error.message })
+                })
+              }
+              logInfo(`Tool ${toolCall.function.name} finished.`)
+            } else {
+              logError(`Tool ${toolCall.function.name} not found.`)
+              messages.push({
+                role: 'tool',
+                tool_call_id: id,
+                content: JSON.stringify({ error: `Tool ${name} not found` })
+              })
+            }
+          }
+        } else {
+          // 没有工具调用，结束
+          break
+        }
+      }
+      return messages[messages.length - 1]?.content || ''
+    } catch (error) {
+      if (loadingStop) {
+        loadingStop('AI process terminated unexpectedly: ' + error.message, true)
+      } else {
+        logError('AI process terminated unexpectedly: ' + error.message)
+      }
+      throw error
     }
-
-    messages.push({
-      role: "user",
-      content: this._buildPrompt(prompt),
-    });
-    return messages;
   }
 
-  async generateResponse(messages, isDirect = false) {
-    let loadingStop = loading("Thinking...");
+  async _generateResponse(messages) {
+    let loadingStop = loading('Thinking...')
     try {
       const response = await this.client.chat.completions.create({
-        model: this.config.model,
+        model: this.aiConfig.model,
         messages: messages,
-        temperature: this.config.temperature,
-        max_tokens: this.config.maxTokens,
+        temperature: this.aiConfig.temperature,
+        max_tokens: this.aiConfig.maxTokens,
         stream: false,
-      });
-      loadingStop(`${this.name} have finished thinking.`);
-      return response.choices[0].message.content;
+      })
+      loadingStop(`${this.name} have finished thinking.`)
+      return response.choices[0].message.content
     } catch (error) {
-      loadingStop("AI process terminated unexpectedly." + error.message, true);
-      throw error;
+      loadingStop('AI process terminated unexpectedly.' + error.message, true)
+      throw error
     }
-    // 读取test.txt文件内容
-    // const testContent = fs.readFileSync(path.resolve(__dirname, './test.txt'), 'utf8');
-    // return testContent;
   }
 
   derictGenerateResponse(systemDescription, prompt) {
-    const messages = [];
+    const messages = []
     messages.push({
-      role: "system",
+      role: 'system',
       content: systemDescription,
-    });
-    for (const message of this.conversationHistory) {
-      messages.push({
-        role: message.role,
-        content: message.content,
-      });
-    }
+    })
     messages.push({
-      role: "user",
+      role: 'user',
       content: prompt,
-    });
-    return this.generateResponse(messages, true);
-  }
-
-  _buildPrompt(userInput) {
-    const currentDir = process.cwd();
-    const osType = process.platform;
-    return `
-User request: "${userInput}"
-Current working directory: "${currentDir}"
-Current OS: "${osType}"
-
-You can ONLY use the built‑in functions under the ‘baseFunction’ object:
-${this.baseFunctionDescription}
-
-Strict Execution Rules:
-1. Always respond in the **same language** as the user request.
-2. Analyze the request and select only the necessary functions, commands, or code.
-3. Output a complete, sequential step list to fully finish the task.
-4. For complex tasks (game, app): generate ALL required files with FULL runnable code.
-5. For directories: always create directory first, then use relative paths for files.
-6. All file/directory operations use **relative paths only**. This applies to ALL built-in functions that take file/directory paths as arguments.
-7. When calling built-in functions with path arguments, ALWAYS use relative paths from the current working directory.
-8. NEVER use absolute paths in any built-in function calls.
-9. All function calls, commands, code must be valid and executable in order.
-10. In Node.js code:
-   - Do NOT use __dirname; use current directory "${currentDir}".
-   - Call built‑in functions directly via baseFunction OR via outputList.functionName (e.g., outputList.createFile_0).
-   - Almost all functions are async: you **MUST** use ’await‘.
-   - Code MUST be properly formatted with consistent indentation (2 or 4 spaces).
-   - Code MUST follow standard JavaScript/Node.js coding conventions and best practices.
-   - Code MUST be clean, readable, and well-structured.
-   - Use meaningful variable names and add necessary comments for complex logic.
-   - Follow proper error handling patterns.
-   - Line endings: Use CRLF (\r\n) for Windows systems and LF (\n) for other systems.
-     Examples:
-     await baseFunction.readFile_0('file.txt')
-     await outputList.createFile_0('file.txt', 'content')
-11. No 'require()' for built‑in functions; use 'baseFunction.funcName_0' or 'outputList.funcName_0' directly. The suffix '_0' can be any number (e.g., _1, _2, etc.).
-12. You can store and reuse return values between steps:
-    const content = await baseFunction.readFile_0('a.txt');
-    await baseFunction.requestAI_0(prompt + content);
-13. When writing function call parameters, use standard JavaScript syntax.
-    Example: baseFunction.createFile_0("file.txt", "content")
-14. A system variable 'outputList' (array) stores the return value of each step.
-15. Use 'outputList[index]' to reuse previous results in Nodejs code.
-    Example: await baseFunction.requestAI_0(outputList[1])
-16. Use 'outputList' as placeholder; system auto‑replaces it with real values in built-in function call. Example: baseFunction.requestAI_0("outputList[1]").
-
-Type Definition (MUST be strictly followed):
-- type 1: Text answer (direct response, no execution)
-- type 2: Built-in file operation function call
-- type 3: Built-in command execution (executeCommand_0)
-- type 4: Node.js code block
-- type 5: Complex thinking prompt (for multi-round thinking scenarios). When returned, the program will automatically execute the next round of conversation with the content as the prompt, and the AI should return results in the same format as before.
-
-Output Format (ABSOLUTELY CRITICAL: ONLY this JSON array, NO extra text, NO explanation, NO markdown, NO comments, NO code blocks, NO code fences, NO formatting):
-[
-  {"type": 1, "content": "text", "description": "Step description"},
-  {"type": 2, "content": "baseFunction.xxx_0(...)\", "description": "Step description"},
-  {"type": 5, "content": "Thinking prompt for next round", "description": "Complex thinking step"},
-  ...
-]
-
-CRITICAL: Your entire response must be exactly this JSON array format. No markdown, no code blocks, no comments, no extra text of any kind. Just the raw JSON array.
-CRITICAL: You MUST return a complete, valid JSON structure. Incomplete or malformed JSON will cause execution errors.
-
-Final Constraints:
-1. If the request is a question or text task: answer directly with type 1.
-   Do NOT call functions, commands, or code unless necessary.
-2. If the request is system/operation task:
-   Prioritize built‑in functions > system commands > Node.js code.
-3. You **MUST** use full function names with suffix '_0' or other numbers (e.g. readFile_0, readFile_1, NOT readFile). The suffix number can be any integer.
-4. Read and understand all functions before planning steps.
-5. ABSOLUTELY CRITICAL: Output **ONLY** the JSON array. No extra words, no notes, no formatting, no code blocks, no markdown, no code fences, no comments, no text of any kind outside the JSON array.
-6. Your entire response must be a valid JSON array that can be parsed directly by JSON.parse().
-7. DO NOT include any markdown, code blocks, or any other formatting in your response.
-8. Just output the raw JSON array and nothing else.
-9. CRITICAL: In JSON strings, ALWAYS use double quotes for string values, NEVER use backticks. Backticks are not valid in JSON.
-10. CRITICAL: Ensure all JSON strings are properly escaped. The output must be valid JSON that can be parsed by JSON.parse().
-11. For complex tasks that require multi-round thinking: Use type 5 with a clear thinking prompt that guides the next round of AI processing. When you return type=5, the program will automatically execute the next round of conversation with the content as the prompt for the next round. In the next round, you should return results in the same format as before, such as text, built-in functions, system commands, or code, which will be automatically executed. This is intended for scenarios where the task is too complex to solve in a single pass.
-      `;
+    })
+    return this._generateResponse(messages)
   }
 }
 
-module.exports = BaseAIService;
+module.exports = BaseAIService

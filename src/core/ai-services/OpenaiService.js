@@ -1,8 +1,8 @@
 const BaseAIService = require('./BaseAIService');
 
 class OpenaiService extends BaseAIService {
-  constructor() {
-    super();
+  constructor(aiCli) {
+    super(aiCli);
     this.type = 'openai';
   }
 }

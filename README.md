@@ -43,7 +43,7 @@ npm link
 Run the configuration wizard to set up your AI service:
 
 ```bash
-ai config setup
+ai config add
 ```
 
 This will prompt you to configure:
@@ -75,8 +75,8 @@ module.exports = {
     }
   ],
   currentAi: "default", // Current active AI configuration name
+  maxIterations: 10, // Maximum iterations for agent workflow
   outputAiResult: false, // Whether to output AI result
-  plugins: [], // List of plugin file paths
   extensions: [], // List of extension file paths
   file: {
     encoding: "utf8", // File encoding
@@ -209,173 +209,61 @@ While local AI services like Ollama provide privacy and offline capabilities, th
 
 For production use or complex tasks, we recommend using DeepSeek, OpenAI services, or Ollama's cloud service for more reliable and accurate results.
 
-## Plugin Development
-
-### Creating a Plugin
-
-Plugins allow you to hook into the execution lifecycle and add custom behavior.
-
-#### Plugin Lifecycle Hooks
-
-```javascript
-const { BasePlugin } = require('ai-cmd-tool');
-
-class MyPlugin extends BasePlugin {
-  constructor(aiCli) {
-    super(aiCli);
-  }
-
-  // Called when plugin is initialized
-  async onInitialize() {
-    console.log('MyPlugin initialized');
-  }
-
-  // Called before AI request, can modify messages
-  async onBeforeAIRequest(messages) {
-    console.log('Before AI request');
-    return messages;
-  }
-
-  // Called after AI response, can modify raw data
-  async onAfterAIRequest(rawData) {
-    console.log('After AI request');
-    return rawData;
-  }
-
-  // Called after response is parsed, can modify steps
-  async onAfterParse(steps) {
-    console.log('After parse');
-    return steps;
-  }
-
-  // Called before each step execution, can modify step
-  async onBeforeStep(steps, stepIndex, step) {
-    console.log(`Before step ${stepIndex}`);
-    return step;
-  }
-
-  // Called after each step execution
-  async onAfterStep(steps, stepIndex, step, outputList) {
-    console.log(`After step ${stepIndex}`);
-  }
-
-  // Called after all steps are executed
-  async onAfterAllSteps(steps, outputList) {
-    console.log('All steps completed');
-  }
-}
-
-module.exports = MyPlugin;
-```
-
-#### Registering a Plugin
-
-1. Save your plugin to a file (e.g., `my-plugin.js`)
-2. Add it to your configuration:
-
-```javascript
-module.exports = {
-  // ... other config
-  plugins: [
-    '/path/to/my-plugin.js'
-  ],
-};
-```
-
-### Example Plugin: Logging Plugin
-
-```javascript
-const { BasePlugin } = require('ai-cmd-tool');
-
-class LoggingPlugin extends BasePlugin {
-  async onBeforeAIRequest(messages) {
-    console.log('AI Request:', JSON.stringify(messages, null, 2));
-    return messages;
-  }
-
-  async onAfterAIRequest(rawData) {
-    console.log('AI Response:', rawData);
-    return rawData;
-  }
-
-  async onAfterStep(steps, stepIndex, step, outputList) {
-    console.log(`Step ${stepIndex} completed:`, step.type);
-  }
-}
-
-module.exports = LoggingPlugin;
-```
-
 ## Extension Development
 
-Extensions allow you to add custom functions that the AI can use.
+Extensions allow you to add custom functions that the AI can use in its workflow.
 
 ### Creating an Extension
 
+Extensions should export an object with `toolDescriptions` (array of tool descriptions) and `toolFunctions` (object of functions).
+
 ```javascript
-const { BaseExtension } = require('ai-cmd-tool');
+// Example extension: Weather Extension
+const axios = require('axios');
 
-class MyExtension extends BaseExtension {
-  // Define your custom functions here
-  async myCustomFunction(param1, param2) {
-    // Your implementation
-    return 'result';
+const toolDescriptions = [
+  {
+    type: 'function',
+    function: {
+      name: 'getWeather',
+      description: 'Get current weather information for a city',
+      parameters: {
+        type: 'object',
+        properties: {
+          city: { type: 'string' }
+        },
+        required: ['city']
+      }
+    }
   }
+];
 
-  // Describe your functions for the AI
-  getDescriptions() {
-    return [
-      {
-        name: 'myCustomFunction',
-        type: 'function',
-        params: ['param1', 'param2'],
-        description: 'Description of what this function does',
-      },
-    ];
+const toolFunctions = {
+  async getWeather(city) {
+    // Implement weather API call
+    const response = await axios.get(`https://api.weatherapi.com/v1/current.json?key=YOUR_KEY&q=${city}`);
+    return `Weather in ${city}: ${response.data.current.temp_c}°C, ${response.data.current.condition.text}`;
   }
-}
+};
 
-module.exports = MyExtension;
+module.exports = {
+  toolDescriptions,
+  toolFunctions
+};
 ```
 
 #### Registering an Extension
 
-1. Save your extension to a file (e.g., `my-extension.js`)
+1. Save your extension to a file (e.g., `weather-extension.js`)
 2. Add it to your configuration:
 
 ```javascript
 module.exports = {
   // ... other config
   extensions: [
-    '/path/to/my-extension.js'
+    '/path/to/weather-extension.js'
   ],
 };
-```
-
-### Example Extension: Weather Extension
-
-```javascript
-const { BaseExtension } = require('ai-cmd-tool');
-
-class WeatherExtension extends BaseExtension {
-  async getWeather(city) {
-    // Implement weather API call
-    return `Weather in ${city}: 25°C, Sunny`;
-  }
-
-  getDescriptions() {
-    return [
-      {
-        name: 'getWeather',
-        type: 'function',
-        params: ['city'],
-        description: 'Get current weather information for a city',
-      },
-    ];
-  }
-}
-
-module.exports = WeatherExtension;
 ```
 
 ## Advanced Usage
