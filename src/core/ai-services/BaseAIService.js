@@ -19,6 +19,8 @@ class BaseAIService {
     }
 
     this.createClient()
+    this.maxMessagesLength = this.config.maxMessagesLength || 50000
+    this.maxMessagesCount = this.config.maxMessagesCount || 20
   }
 
   createClient() {
@@ -28,6 +30,89 @@ class BaseAIService {
     })
   }
 
+  _calculateMessagesLength(messages) {
+    return messages.reduce((total, msg) => {
+      let length = 0
+      if (msg.content) {
+        length += typeof msg.content === 'string' ? msg.content.length : JSON.stringify(msg.content).length
+      }
+      if (msg.tool_calls) {
+        length += JSON.stringify(msg.tool_calls).length
+      }
+      return total + length
+    }, 0)
+  }
+
+  async _summarizeMessages(messages) {
+    const summaryPrompt = `Please summarize the following conversation history concisely, focusing on:
+1. The main task and goal
+2. Key decisions and actions taken
+3. Current progress and state
+4. Important context needed for continuing the task
+
+Keep the summary brief but comprehensive enough to continue the task effectively.
+
+Conversation history:
+${messages.map(m => {
+  if (m.role === 'system') return `[SYSTEM]: ${m.content.substring(0, 200)}...`
+  if (m.role === 'user') return `[USER]: ${m.content.substring(0, 500)}...`
+  if (m.role === 'assistant') return `[ASSISTANT]: ${m.content ? m.content.substring(0, 500) : '[Tool calls]'}...`
+  if (m.role === 'tool') return `[TOOL RESULT]: ${m.content.substring(0, 200)}...`
+  return ''
+}).join('\n')}`
+
+    try {
+      const response = await this.client.chat.completions.create({
+        model: this.aiConfig.model,
+        messages: [
+          { role: 'system', content: 'You are a helpful assistant that creates concise summaries of conversations.' },
+          { role: 'user', content: summaryPrompt }
+        ],
+        temperature: 0.3,
+        max_tokens: 1000,
+      })
+      return response.choices[0].message.content
+    } catch (error) {
+      logError('Failed to summarize messages: ' + error.message)
+      return 'Previous conversation history was too long and has been summarized. Please continue with the current task.'
+    }
+  }
+
+  async _manageMessages(messages) {
+    const currentLength = this._calculateMessagesLength(messages)
+    const currentCount = messages.length
+
+    if (currentLength > this.maxMessagesLength || currentCount > this.maxMessagesCount) {
+      logInfo(`Managing messages: current length ${currentLength}, count ${currentCount}`)
+      
+      const systemMessage = messages.find(m => m.role === 'system')
+      const userMessage = messages.find(m => m.role === 'user')
+      
+      const messagesToSummarize = messages.slice(2, -2)
+      
+      if (messagesToSummarize.length > 0) {
+        const summary = await this._summarizeMessages(messagesToSummarize)
+        
+        const newMessages = [
+          systemMessage,
+          userMessage,
+          {
+            role: 'user',
+            content: `[CONVERSATION SUMMARY]: ${summary}`
+          }
+        ]
+        
+        const lastTwoMessages = messages.slice(-2)
+        newMessages.push(...lastTwoMessages)
+        
+        logInfo(`Messages compressed: ${messages.length} -> ${newMessages.length}`)
+        return newMessages
+      }
+    }
+    
+    return messages
+  }
+
   // 工作流循环
   async agentWorkflow(goal) {
     const extensionManager = this.aiCli.extensionManager
@@ -35,7 +120,7 @@ class BaseAIService {
     const currentDir = process.cwd();
     const osType = process.platform;
     
-    const messages = [
+    let messages = [
       {
         role: 'system',
         content: `You are an AI assistant that can use tools to accomplish tasks. The current working directory is ${currentDir}, and the operating system is ${osType}. Use the available tools to achieve the user's goal.
@@ -57,7 +142,24 @@ IMPORTANT: When handling large files (e.g., novels, long documents), use a chunk
 
 IMPORTANT: The system will automatically truncate any tool response larger than 10KB. If you need to process large files, use the executeJSCode function to implement chunked processing directly in Node.js without returning the entire file content to the conversation.
 
-TIP: You can use the executeJSCode function to run Node.js code for complex logic, and the executeCommand function to run system commands using command-line tools that are already installed on the system. This includes tools like git, npm, ls, mkdir, and other system utilities. These tools can help you quickly accomplish your goals.`
+CRITICAL FOR CONTENT GENERATION TASKS (e.g., writing novels, articles, long documents):
+1. NEVER generate large amounts of content directly in the conversation - this will cause system errors
+2. ALWAYS write content directly to files using createFile, modifyFile, or appendToFile tools
+3. For very long content (e.g., novels, reports), generate in chunks and append to files progressively
+4. Use executeJSCode to implement a loop that generates content in manageable sections and writes to files
+5. Track progress using variables or files, and continue from where you left off
+6. Example approach for writing a novel:
+   - Create an outline first and save to a file
+   - Write chapter by chapter, each chapter to a separate file
+   - Use appendToFile to add sections progressively
+   - Keep track of word count and progress in a separate tracking file
+7. DO NOT return generated content in tool responses - only return status/progress information
+
+IMPORTANT: The conversation history will be automatically summarized when it becomes too long. Always write important content to files immediately, as previous conversation details may be compressed.
+
+TIP: You can use the executeJSCode function to run Node.js code for complex logic, and the executeCommand function to run system commands using command-line tools that are already installed on the system. This includes tools like git, npm, ls, mkdir, and other system utilities. These tools can help you quickly accomplish your goals.
+
+IMPORTANT: When calling tool functions (executeJSCode, executeCommand, createFile, modifyFile, etc.), if the execution completes successfully without any errors or exceptions, consider the current objective accomplished. There is no need to verify the result or call additional tools to confirm the operation succeeded. Trust the successful execution and proceed to the next step or complete the task.`
       },
       {
         role: 'user',
@@ -67,8 +169,13 @@ TIP: You can use the executeJSCode function to run Node.js code for complex logi
 
     let maxIterations = this.config.maxIterations || 10
     let loadingStop
+    if (maxIterations === -1) {
+      maxIterations = Infinity
+    }
     try {
       while (maxIterations-- > 0) {
+        messages = await this._manageMessages(messages)
+        
         loadingStop = loading('Thinking...')
         const response = await this.client.chat.completions.create({
           model: this.aiConfig.model,
