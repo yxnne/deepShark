@@ -39,6 +39,7 @@ class AiWorkFlow {
           this.messages,
           true,
         );
+        this.messages = this.getMessages("workFlow", analysisResult, null);
         await agentWorkflow(
           this.aiCli,
           this.client,
@@ -60,6 +61,7 @@ class AiWorkFlow {
           this.messages,
           false
         );
+        this.messages = this.getMessages("workFlow", analysisResult, null);
         await agentWorkflow(
           this.aiCli,
           this.client,

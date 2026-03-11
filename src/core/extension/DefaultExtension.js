@@ -2,25 +2,37 @@ const path = require('path')
 const { logError, logSuccess, logInfo } = require('../utils')
 const fs = require('fs-extra')
 const shelljs = require('shelljs')
+const iconv = require('iconv-lite') // 用于编码转换
+const os = require('os') // 用于判断系统类型
 
 // 执行系统命令
+// 执行系统命令（全平台兼容：Windows/PowerShell/CentOS）
 async function executeCommand(command) {
   return new Promise((resolve, reject) => {
-    logSuccess(`Executing system command:\n ${command}`)
+    logSuccess(`Executing system command: ${command}`)
+    const platform = os.platform()
+    const targetEncoding = platform === 'win32' ? 'gbk' : 'utf-8' // Windows(含PowerShell)用gbk，Linux/macOS用utf-8
     shelljs.exec(command, {
       async: true,
       cwd: process.cwd(),
-      stdio: 'inherit',
-      encoding: 'utf-8',
+      encoding: 'binary',
+      silent: true
     }, (code, stdout, stderr) => {
-      if (stderr) {
-        const error = new Error(`System command failed with exit code ${code}`)
-        logError(`Error executing system command: ${error.message}`)
-        reject(error)
-        return
+      try {
+        const stdoutUtf8 = iconv.decode(Buffer.from(stdout, 'binary'), targetEncoding)
+        const stderrUtf8 = iconv.decode(Buffer.from(stderr, 'binary'), targetEncoding)
+        if (stderrUtf8 && !stderrUtf8.trim().startsWith('WARNING')) { // 过滤无关警告
+          const error = new Error(`Command failed (code ${code}): ${stderrUtf8}`)
+          logError(`Execute error: ${error.message}`)
+          reject(error)
+          return
+        }
+        logSuccess(`${stdoutUtf8} \n Command executed successfully`)
+        resolve(stdoutUtf8 || 'Command executed successfully')
+      } catch (decodeError) {
+        logError(`Encoding convert error: ${decodeError.message}`)
+        reject(new Error(`Failed to parse command output: ${decodeError.message}`))
       }
-      logSuccess('System command executed successfully')
-      resolve(stdout || 'System command executed successfully')
     })
   })
 }
@@ -136,6 +148,24 @@ async function getExtensionFileRule(goal) {
     
   `
   return newGoal
+}
+
+// 追加临时文件记录到messages
+function appendTempFileRecord(fileName, tempFilePath, tempFileDescription) {
+  try {
+    const messages = this.aiService.aiWorkFlow.messages
+    const userGoalMessage = messages[1]
+    const userGoal = JSON.parse(userGoalMessage.content)
+    if (!userGoal.tempFiles) {
+      userGoal.tempFiles = []
+    }
+    userGoal.tempFiles.push(`参考文件${userGoal.tempFiles.length + 1}:${fileName},文件描述:${tempFileDescription},文件路径:${tempFilePath}`)
+    userGoalMessage.content = JSON.stringify(userGoal)
+    return true
+  } catch (error) {
+    logError(`Error appending temp file record: ${error.message}`)
+    throw error
+  }
 }
 
 
@@ -374,7 +404,7 @@ const toolDescriptions = [
     type: 'function',
     function: {
       name: 'executeJSCode',
-      description: '执行JavaScript代码，返回代码执行结果。代码中可通过Tools命名空间直接调用其他工具函数（如await Tools.createFile(),注意：不需要使用require引入），支持引入自定义模块（需使用绝对路径）。代码中不要使用__dirname获取当前目录，请使用path.resolve(".")来获取当前目录。执行失败时会抛出错误，成功时返回代码执行结果或空字符串。',
+      description: '执行JavaScript代码，返回代码执行结果。代码中可通过Tools命名空间直接调用其他工具函数（如await Tools.createFile(),注意：不需要使用require引入）,Tools中引入了一些常用库可直接调用（Tools.fs="fs-extra", Tool.dayjs="dayjs", Tool.axios="axios"），支持引入自定义模块（需使用绝对路径）。代码中不要使用__dirname获取当前目录，请使用path.resolve(".")来获取当前目录。执行失败时会抛出错误，成功时返回代码执行结果或空字符串。',
       parameters: {
         type: 'object',
         properties: {
@@ -584,6 +614,22 @@ const toolDescriptions = [
         required: ['goal']
       }
     }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'appendTempFileRecord',
+      description: '追加临时文件记录到messages,包括临时文件的名称和描述，用于说明临时文件的作用，方便在AI对话中AI进行历史文件查阅。返回布尔值表示操作是否成功',
+      parameters: {
+        type: 'object',
+        properties: {
+          fileName: { type: 'string' },
+          tempFilePath: { type: 'string' },
+          tempFileDescription: { type: 'string' }
+        },
+        required: ['fileName', 'tempFilePath', 'tempFileDescription']
+      }
+    }
   }
 ]
 const toolFunctions = {
@@ -603,7 +649,8 @@ const toolFunctions = {
   getFileInfo,
   getFileNameList,
   clearDirectory,
-  getExtensionFileRule
+  getExtensionFileRule,
+  appendTempFileRecord,
 }
 
 module.exports = {

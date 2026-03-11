@@ -36,6 +36,14 @@ npm install
 npm link
 ```
 
+## Quick Start
+
+```bash
+ai config add # Enter "deepseek" as the name, and input your DeepSeek API key
+ai use deepseek
+ai "Help me write a science fiction novel"
+```
+
 ## Configuration
 
 ### Initial Setup

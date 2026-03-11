@@ -1,3 +1,4 @@
+const { cloneDeep } = require("lodash");
 const { logError, logInfo, loading } = require("../../utils");
 
 const maxMessagesLength = 50000; // 最大压缩长度
@@ -21,25 +22,23 @@ function calculateMessagesLength(messages) {
 }
 
 // 压缩Messages
-async function summarizeMessages(aiConfig, aiClient, messages) {
-  const summaryPrompt = `Please summarize the following conversation history concisely, focusing on:
-1. The main task and goal
-2. Key decisions and actions taken
-3. Current progress and state
-4. Important context needed for continuing the task
-
-Keep the summary brief but comprehensive enough to continue the task effectively.
+async function summarizeMessages(aiConfig, aiClient, goal, messages) {
+  const summaryPrompt = `请结合任务目标${goal}总结以下对话历史，重点：
+  1. 删除不需要的信息，如程序报错、冗余表述、语气词、闲聊等信息
+  2. 关注当前进度和状态
+  3. 过滤出后续任务所需的重要背景信息并进行总结
+保持摘要简短但足够全面，以便有效继续任务。.
 
 Conversation history:
 ${messages
   .map((m) => {
     if (m.role === "system")
-      return `[SYSTEM]: ${m.content.substring(0, 200)}...`;
-    if (m.role === "user") return `[USER]: ${m.content.substring(0, 500)}...`;
+      return `[SYSTEM]: ${m.content}`;
+    if (m.role === "user") return `[USER]: ${m.content}`;
     if (m.role === "assistant")
-      return `[ASSISTANT]: ${m.content ? m.content.substring(0, 500) : "[Tool calls]"}...`;
+      return `[ASSISTANT]: ${m.content ? m.content : "[Tool calls]"}`;
     if (m.role === "tool")
-      return `[TOOL RESULT]: ${m.content.substring(0, 200)}...`;
+      return `[TOOL RESULT]: ${m.content}`;
     return "";
   })
   .join("\n")}`;
@@ -66,6 +65,7 @@ ${messages
 }
 
 async function manageMessages(aiConfig, aiClient, messages) {
+  messages = cloneDeep(messages);
   const currentLength = calculateMessagesLength(messages);
   const currentCount = messages.length;
 
@@ -74,15 +74,16 @@ async function manageMessages(aiConfig, aiClient, messages) {
       `Managing messages: current length ${currentLength}, count ${currentCount}`,
     );
 
-    const systemMessage = messages.find((m) => m.role === "system");
-    const userMessage = messages.find((m) => m.role === "user");
-
+    const systemMessage = messages[0];
+    const userMessage = messages[1];
+    const goal = messages[1].content
     const messagesToSummarize = messages.slice(2, -2);
 
     if (messagesToSummarize.length > 0) {
       const summary = await summarizeMessages(
         aiConfig,
         aiClient,
+        goal,
         messagesToSummarize,
       );
 
@@ -93,11 +94,8 @@ async function manageMessages(aiConfig, aiClient, messages) {
           role: "user",
           content: `[CONVERSATION SUMMARY]: ${summary}`,
         },
+        ...messages.slice(-2)
       ];
-
-      const lastTwoMessages = messages.slice(-2);
-      newMessages.push(...lastTwoMessages);
-
       logInfo(
         `Messages compressed: ${messages.length} -> ${newMessages.length}`,
       );
@@ -198,8 +196,8 @@ const currentDir = process.cwd();
 const osType = process.platform;
 // 目标工作流提示词
 const workFlowPrompt = `你是一名能够使用工具完成任务的 AI 助手。当前工作目录为 ${currentDir}，操作系统为 ${osType}。请使用可用工具达成用户目标。
-提示：你可以使用 executeJSCode 运行 Node.js 代码处理复杂逻辑，使用 executeCommand 运行系统已安装的命令行工具（如 git、npm、ls、mkdir 等系统工具），这些工具可帮你快速达成目标。
-提示：处理复杂的任务可以在当前目录下创建临时目录ai-temp，用于创建临时文件来存储中间结果。在临时目录中创建一个名称为temp-file-guide.md文件，包含临时文件的名称和描述，用于说明临时文件的作用，方面项目进行中查看。处理完成后将创建的临时目录删除。
+提示：你可以使用 executeJSCode 运行 Node.js 代码处理复杂逻辑，使用 executeCommand 运行系统已安装的命令行工具（如 git、npm 等系统工具），这些工具可帮你快速达成目标。
+提示：处理复杂的任务可以在当前目录下创建临时目录ai-temp，用于创建临时文件来存储中间结果。创建临时文件完成后必须执行appendTempFileRecord函数，用于记录临时文件的作用，方便AI对话中进行历史文件查阅。处理完成后将创建的临时目录删除。
 重要：处理大文件（如长篇小说、长文档）时，使用分块处理方式：
 1.先检查文件大小与结构
 2.以可控块大小处理（如每块 5KB–10KB）

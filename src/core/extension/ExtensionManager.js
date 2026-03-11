@@ -1,6 +1,8 @@
 const { toolDescriptions, toolFunctions } = require('./DefaultExtension')
 const path = require('path')
 const fs = require('fs-extra')
+const axios = require('axios')
+const dayjs = require('dayjs')
 const { logError } = require('../utils')
 
 class ExtensionManager {
@@ -54,6 +56,9 @@ class ExtensionManager {
     for (const fnName of Object.keys(toolFunctions)) {
       toolFunctions[fnName] = toolFunctions[fnName].bind(this.aiCli)
     }
+    toolFunctions['fs']  = fs
+    toolFunctions['axios']  = axios
+    toolFunctions['dayjs']  = dayjs
   }
 }
 

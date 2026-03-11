@@ -34,7 +34,9 @@
     "commander": "^11.0.0",
     "dayjs": "^1.11.19",
     "fs-extra": "^11.3.3",
+    "iconv-lite": "^0.7.2",
     "inquirer": "^9.0.0",
+    "lodash": "^4.17.23",
     "openai": "^6.18.0",
     "shelljs": "^0.10.0"
   },

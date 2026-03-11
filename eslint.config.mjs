@@ -10,8 +10,7 @@ export default defineConfig([
     extends: ["js/recommended"],
     languageOptions: {
       globals: {
-        process: true,
-        ...globals.browser,
+        ...globals.node,
       }
     },
     rules: {

@@ -36,6 +36,14 @@ npm install
 npm link
 ```
 
+## 快速使用
+
+```bash
+ai config add # 名称输入deepseek, 并输入你的deepseek api key
+ai use deepseek
+ai ”帮我写一篇科幻小说“
+```
+
 ## 配置
 
 ### 初始设置
@@ -202,7 +210,7 @@ ai "检查当前目录的磁盘使用情况"
 
 ```bash
 ai "创建一个用于查询天气的扩展工具weather.js"
-ai config ext weather.js
+ai ext add weather.js
 ```
 
 **媒体处理：**
