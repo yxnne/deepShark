@@ -77,9 +77,8 @@ module.exports = {
   currentAi: "default", // Current active AI configuration name
   maxIterations: 10, // Maximum iterations for agent workflow
   extensions: [], // List of extension file paths
-  file: {
-    encoding: "utf8", // File encoding
-  },
+  isRecordHistory: false, // Whether to create a record file for workflow execution
+  isLog: false // Whether to create a log file for workflow execution
 };
 ```
 
@@ -133,6 +132,25 @@ Clear configuration:
 ai config clear
 ```
 
+Add extension tool:
+
+```bash
+ai ext add <filename>
+```
+
+Remove extension tool:
+
+```bash
+ai ext del <filename>
+ai ext del <index>
+```
+
+List all extension tools:
+
+```bash
+ai ext ls
+```
+
 ## Usage
 
 ### Interactive Mode
@@ -179,6 +197,13 @@ ai "Create a browser-based plane shooting game"
 ```bash
 ai "List all files in the current directory with their sizes"
 ai "Check the disk usage of the current directory"
+```
+
+**Extension Tool Generation：**
+
+```bash
+ai "Get current weather information for a city To weather.js"
+ai ext add weather.js
 ```
 
 **Media Processing:**
@@ -252,6 +277,14 @@ module.exports = {
 ```
 
 #### Registering an Extension
+
+**Method 1: Using Command Line**
+
+```bash
+ai ext add <filename>
+```
+
+**Method 2: Manual Configuration**
 
 1. Save your extension to a file (e.g., `weather-extension.js`)
 2. Add it to your configuration:

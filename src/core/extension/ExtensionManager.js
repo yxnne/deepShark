@@ -1,4 +1,7 @@
 const { toolDescriptions, toolFunctions } = require('./DefaultExtension')
+const path = require('path')
+const fs = require('fs-extra')
+const { logError } = require('../utils')
 
 class ExtensionManager {
   constructor(aiCli) {
@@ -19,13 +22,22 @@ class ExtensionManager {
           : path.resolve(process.cwd(), extensionPath)
 
         if (!fs.existsSync(resolvedPath)) {
-          console.error(`Extension file not found: ${resolvedPath}`)
+          logError(`Extension file not found: ${resolvedPath}`)
           continue
         }
 
         // 动态加载扩展模块
-        const { toolDescriptions, toolFunctions } = require(resolvedPath)
-
+        let { toolDescriptions, toolFunctions } = require(resolvedPath)
+        toolDescriptions = toolDescriptions.map(item => {
+          if (!item.type) {
+            return {
+              type: 'function',
+              function: item
+            }
+          } else {
+            return item
+          }
+        })
         this.extensions.toolDescriptions =
           this.extensions.toolDescriptions.concat(toolDescriptions)
         this.extensions.toolFunctions = Object.assign(
@@ -33,7 +45,7 @@ class ExtensionManager {
           toolFunctions,
         )
       } catch (error) {
-        console.error(
+        logError(
           `Error loading extension ${extensionPath}: ${error.message}`,
         )
       }

@@ -5,7 +5,7 @@ const fs = require("fs");
 const path = require("path");
 const os = require("os");
 const AICLI = require("./core/AICLI");
-const { logSuccess, logError } = require("./core/utils");
+const { logSuccess, logError, addExtensionToConfig, removeExtensionFromConfig, viewExtensionsFromConfig } = require("./core/utils");
 const userConfigPath = path.join(os.homedir(), ".ai-cmd.config.js");
 const DefaultConfig = require("./core/DefaultConfig");
 
@@ -280,9 +280,35 @@ program
     program.prompt = Array.isArray(prompt) ? prompt.join(" ") : prompt || "";
   });
 
+const extCommand = program
+  .command("ext")
+  .description("Extension management commands");
+
+extCommand
+  .command("add <filename>")
+  .description("Add extension tool to the configuration")
+  .action((filename) => {
+    addExtensionToConfig(filename);
+  });
+
+extCommand
+  .command("del <filename>")
+  .description("Remove extension tool from the configuration")
+  .action((filename) => {
+    removeExtensionFromConfig(filename);
+  });
+
+extCommand
+  .command("ls")
+  .description("List all extension tools in the configuration")
+  .action(() => {
+    viewExtensionsFromConfig();
+  });
+
 const configCommand = program
   .command("config")
   .description("Configure AI service settings");
+
 
 configCommand
   .command("edit")
@@ -571,9 +597,11 @@ configCommand
     }
   });
 
+
+
 async function main() {
   try {
-    if (program.args && program.args[0] === "config") {
+    if (program.args && (program.args[0] === "config" || program.args[0] === "ext")) {
       return;
     }
     const options = program.opts();

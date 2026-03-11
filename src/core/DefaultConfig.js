@@ -2,11 +2,10 @@ function DefaultConfig() {
   return {
     ai: [],
     currentAi: "",
-    maxIterations: 10, // ai完成工作流的最大迭代次数
+    maxIterations: -1, // ai完成工作流的最大迭代次数
     extensions: [],
-    file: {
-      encoding: "utf8",
-    },
+    isRecordHistory: false, // 是否创建工作流执行记录文件
+    isLog: false // 是否创建工作流执行日志
   };
 }
 

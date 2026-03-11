@@ -77,9 +77,8 @@ module.exports = {
   currentAi: "default", // 当前活动的AI配置名称
   maxIterations: 10, // 代理工作流的最大迭代次数
   extensions: [], // 扩展文件路径列表
-  file: {
-    encoding: "utf8", // 文件编码
-  },
+  isRecordHistory: false, // 是否创建工作流执行记录文件
+  isLog: false // 是否创建工作流执行日志
 };
 ```
 
@@ -133,6 +132,25 @@ ai config reset
 ai config clear
 ```
 
+添加扩展工具：
+
+```bash
+ai ext add <filename>
+```
+
+移除扩展工具：
+
+```bash
+ai ext del <filename>
+ai ext del <index>
+```
+
+列出所有扩展工具：
+
+```bash
+ai ext ls
+```
+
 ## 使用方法
 
 ### 交互模式
@@ -178,6 +196,13 @@ ai "创建一个基于浏览器的飞机大战游戏"
 ```bash
 ai "列出当前目录中所有文件及其大小"
 ai "检查当前目录的磁盘使用情况"
+```
+
+**扩展工具生成：**
+
+```bash
+ai "创建一个用于查询天气的扩展工具weather.js"
+ai config ext weather.js
 ```
 
 **媒体处理：**
@@ -251,6 +276,14 @@ module.exports = {
 ```
 
 #### 注册扩展
+
+**方法1：使用命令行**
+
+```bash
+ai ext add <filename>
+```
+
+**方法2：手动配置**
 
 1. 将扩展保存到文件中（例如`weather-extension.js`）
 2. 将其添加到您的配置中：

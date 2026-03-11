@@ -1,6 +1,6 @@
 {
   "name": "ai-cmd-tool",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "An AI command-line tool that processes operating system commands and manipulates files through natural language processing, supporting Ollama, DeepSeek, and OpenAI.",
   "main": "src/index.js",
   "bin": {
@@ -35,6 +35,13 @@
     "dayjs": "^1.11.19",
     "fs-extra": "^11.3.3",
     "inquirer": "^9.0.0",
-    "openai": "^6.18.0"
+    "openai": "^6.18.0",
+    "shelljs": "^0.10.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@eslint/json": "^1.0.1",
+    "eslint": "^10.0.3",
+    "globals": "^17.4.0"
   }
 }

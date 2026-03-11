@@ -1,33 +1,26 @@
 const path = require('path')
-const { spawn } = require('child_process')
 const { logError, logSuccess, logInfo } = require('../utils')
 const fs = require('fs-extra')
+const shelljs = require('shelljs')
 
 // 执行系统命令
 async function executeCommand(command) {
   return new Promise((resolve, reject) => {
     logSuccess(`Executing system command:\n ${command}`)
-
-    const childProcess = spawn(command, {
-      shell: true,
+    shelljs.exec(command, {
+      async: true,
       cwd: process.cwd(),
       stdio: 'inherit',
-    })
-
-    childProcess.on('error', (error) => {
-      logError(`Error executing system command: ${error.message}`)
-      reject(error)
-    })
-
-    childProcess.on('close', (code) => {
-      if (code !== 0) {
+      encoding: 'utf-8',
+    }, (code, stdout, stderr) => {
+      if (stderr) {
         const error = new Error(`System command failed with exit code ${code}`)
         logError(`Error executing system command: ${error.message}`)
         reject(error)
         return
       }
-      logSuccess(`System command executed successfully`)
-      resolve('System command executed successfully')
+      logSuccess('System command executed successfully')
+      resolve(stdout || 'System command executed successfully')
     })
   })
 }
@@ -43,10 +36,13 @@ async function requestAI(systemDescription, prompt) {
     systemDescription = systemDescription.systemDescription || ''
   }
   try {
+    logInfo(`aiSystem: ${systemDescription}`)
+    logInfo(`aiPrompt: ${prompt}`)
     const response = await this.aiService.derictGenerateResponse(
       systemDescription,
       prompt
     )
+    logInfo(`aiResponse: ${response}`)
     return response
   } catch (error) {
     logError(`Error executing AI function: ${error.message}`)
@@ -66,16 +62,82 @@ async function executeJSCode(code) {
       'require',
       'return (async () => { ' + code + ' })()',
     )
+    const originalRequire = require;
+    const newRequire = (modulePath) => {
+        if (modulePath.startsWith('./')) {
+            const resolvedPath = path.resolve('.', modulePath);
+            return originalRequire(resolvedPath);
+        }
+        return originalRequire(modulePath);
+    };
     const result = await Func(
       toolFunctions,
-      require,
+      newRequire,
     )
     return result || ''
   } catch (error) {
-    console.log(`Error executing code: ${error.stack}`)
+    logError(`Error executing code: ${error.stack}`)
     throw error
   }
 }
+// 生成一个扩展函数文件
+async function getExtensionFileRule(goal) {
+  const newGoal = `
+    创建一个js文件或一个包含主文件的node项目，使用逻辑清晰的nodejs代码完成用户目标: ${goal}。主函数输出两个字段：toolDescriptions(openai能识别的函数描述)和toolFunctions(一个key为函数名称，value为方法体的对象。注意：函数体的参数必须与toolDescriptions中描述的参数一致。),如下所示：
+    “”“
+    const toolDescriptions = []
+    const toolFunctions = {}
+    module.exports = {
+      toolDescriptions,
+      toolFunctions,
+    }
+    ”“”
+    以下是示例：
+    “”“
+    const toolDescriptions = [
+      {
+        name: 'rename_file',
+        description: '重命名文件',
+        parameters: {
+          type: 'object',
+          properties: {
+            oldPath: {
+              type: 'string',
+              description: '旧文件路径',
+            },
+            newPath: {
+              type: 'string',
+              description: '新文件路径',
+            },
+          },
+        },
+      },
+    ]
+    const toolFunctions = {
+      rename_file: (oldPath, newPath) => {
+        try {
+          const fullOldPath = path.resolve(process.cwd(), oldPath)
+          const fullNewPath = path.resolve(process.cwd(), newPath)
+
+          if (fs.existsSync(fullOldPath)) {
+            fs.renameSync(fullOldPath, fullNewPath)
+          }
+          return true
+        } catch (error) {
+          return false
+        }
+      },
+    }
+    module.exports = {
+      toolDescriptions,
+      toolFunctions,
+    }
+    ”“”
+    
+  `
+  return newGoal
+}
+
 
 async function createFile(filePath, content) {
   try {
@@ -242,7 +304,7 @@ async function getFileNameList(dirPath) {
     if (!fs.existsSync(fullPath) || !fs.statSync(fullPath).isDirectory()) {
       return []
     }
-    const files = fs.readdirSync(fullPath)
+    const files = fs.readdirSync(fullPath).filter(file => (file !== 'ai-history' && file !== 'ai-log'))
     return files
   } catch (error) {
     return []
@@ -283,7 +345,7 @@ const toolDescriptions = [
     type: 'function',
     function: {
       name: 'executeCommand',
-      description: '执行系统命令',
+      description: '执行系统命令，返回执行结果。适用于运行shell命令、系统工具等。命令执行失败时会抛出错误，成功时返回命令执行结果字符串或"System command executed successfully"。',
       parameters: {
         type: 'object',
         properties: {
@@ -297,7 +359,7 @@ const toolDescriptions = [
     type: 'function',
     function: {
       name: 'requestAI',
-      description: '请求AI服务处理简单任务，如随机生成一段话、翻译文本、数学计算、代码分析、知识检索等。通过systemDescription参数指定AI的行为和限制，prompt参数输入任务描述。返回AI处理后的结果，仅包含所需的输出内容，不包含任何解释或额外信息，确保返回的结果能够被解析。',
+      description: '请求AI服务处理简单任务，如随机生成一段话、翻译文本、数学计算、代码分析、知识检索等。通过systemDescription参数指定AI的行为和限制，prompt参数输入任务描述。返回AI处理后的结果字符串，执行失败时会抛出错误。',
       parameters: {
         type: 'object',
         properties: {
@@ -312,7 +374,7 @@ const toolDescriptions = [
     type: 'function',
     function: {
       name: 'executeJSCode',
-      description: '执行JavaScript代码。代码中可以直接调用工作流工具函数(通过Tools命名空间直接调用，无需引入模块，注意这些函数都是异步函数，调用时需要注意,例如await Tools.createDirectory("新建目录"))，从而与其他工具协同工作。如果需要引入自定义JS模块，必须使用绝对路径。注意：不要使用__dirname获取当前目录，请使用path.resolve(".")来获取当前目录。',
+      description: '执行JavaScript代码，返回代码执行结果。代码中可通过Tools命名空间直接调用其他工具函数（如await Tools.createFile(),注意：不需要使用require引入），支持引入自定义模块（需使用绝对路径）。代码中不要使用__dirname获取当前目录，请使用path.resolve(".")来获取当前目录。执行失败时会抛出错误，成功时返回代码执行结果或空字符串。',
       parameters: {
         type: 'object',
         properties: {
@@ -326,7 +388,7 @@ const toolDescriptions = [
     type: 'function',
     function: {
       name: 'createFile',
-      description: '创建一个包含指定内容的新文件',
+      description: '创建一个包含指定内容的新文件，返回布尔值表示操作是否成功。如果目录不存在会自动创建目录结构。',
       parameters: {
         type: 'object',
         properties: {
@@ -341,7 +403,7 @@ const toolDescriptions = [
     type: 'function',
     function: {
       name: 'modifyFile',
-      description: '修改指定文件的内容',
+      description: '修改指定文件的内容，返回布尔值表示操作是否成功。如果文件不存在则返回false。',
       parameters: {
         type: 'object',
         properties: {
@@ -356,7 +418,7 @@ const toolDescriptions = [
     type: 'function',
     function: {
       name: 'readFile',
-      description: '读取指定文件的内容，返回文件内容的字符串',
+      description: '读取指定文件的内容，返回文件内容字符串。如果文件不存在或读取失败则返回null。',
       parameters: {
         type: 'object',
         properties: {
@@ -370,7 +432,7 @@ const toolDescriptions = [
     type: 'function',
     function: {
       name: 'appendToFile',
-      description: '向指定文件追加内容',
+      description: '向指定文件追加内容，返回布尔值表示操作是否成功。如果文件不存在则返回false。',
       parameters: {
         type: 'object',
         properties: {
@@ -385,7 +447,7 @@ const toolDescriptions = [
     type: 'function',
     function: {
       name: 'fileExists',
-      description: '检查指定文件是否存在，返回true或false',
+      description: '检查指定文件是否存在，返回布尔值。',
       parameters: {
         type: 'object',
         properties: {
@@ -399,7 +461,7 @@ const toolDescriptions = [
     type: 'function',
     function: {
       name: 'createDirectory',
-      description: '创建一个新目录',
+      description: '创建一个新目录，返回布尔值表示操作是否成功。支持递归创建目录结构。',
       parameters: {
         type: 'object',
         properties: {
@@ -413,7 +475,7 @@ const toolDescriptions = [
     type: 'function',
     function: {
       name: 'deleteFile',
-      description: '删除指定文件',
+      description: '删除指定文件，返回布尔值表示操作是否成功。如果文件不存在也会返回true。',
       parameters: {
         type: 'object',
         properties: {
@@ -427,7 +489,7 @@ const toolDescriptions = [
     type: 'function',
     function: {
       name: 'deleteDirectory',
-      description: '删除指定目录',
+      description: '删除指定目录，返回布尔值表示操作是否成功。支持递归删除目录及其内容。如果目录不存在也会返回true。',
       parameters: {
         type: 'object',
         properties: {
@@ -441,7 +503,7 @@ const toolDescriptions = [
     type: 'function',
     function: {
       name: 'rename',
-      description: '重命名文件或目录',
+      description: '重命名文件或目录，返回布尔值表示操作是否成功。如果原文件不存在也会返回true。',
       parameters: {
         type: 'object',
         properties: {
@@ -456,7 +518,7 @@ const toolDescriptions = [
     type: 'function',
     function: {
       name: 'moveFile',
-      description: '移动文件',
+      description: '移动文件，返回布尔值表示操作是否成功。如果目标目录不存在会自动创建。如果源文件不存在也会返回true。',
       parameters: {
         type: 'object',
         properties: {
@@ -471,7 +533,7 @@ const toolDescriptions = [
     type: 'function',
     function: {
       name: 'getFileInfo',
-      description: '获取指定文件的信息，返回文件信息的对象',
+      description: '获取指定文件的信息，返回文件信息对象。如果文件不存在或获取失败则返回null。返回对象包含path、size、birthtime、mtime、ctime、isFile、isDirectory等属性。',
       parameters: {
         type: 'object',
         properties: {
@@ -485,7 +547,7 @@ const toolDescriptions = [
     type: 'function',
     function: {
       name: 'getFileNameList',
-      description: '获取指定目录下的所有文件名，返回文件名数组',
+      description: '获取指定目录下的所有文件名，返回文件名数组。如果目录不存在或不是目录则返回空数组。',
       parameters: {
         type: 'object',
         properties: {
@@ -499,13 +561,27 @@ const toolDescriptions = [
     type: 'function',
     function: {
       name: 'clearDirectory',
-      description: '清空指定目录的内容',
+      description: '清空指定目录的内容，返回布尔值表示操作是否成功。如果目录不存在或不是目录则返回false。',
       parameters: {
         type: 'object',
         properties: {
           dirPath: { type: 'string' }
         },
         required: ['dirPath']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'getExtensionFileRule',
+      description: '如果用户需要为本程序ai工作流生成一个可以调用的扩展工具，则需要先调用此函数获取生成扩展文件的规则',
+      parameters: {
+        type: 'object',
+        properties: {
+          goal: { type: 'string' }
+        },
+        required: ['goal']
       }
     }
   }
@@ -527,6 +603,7 @@ const toolFunctions = {
   getFileInfo,
   getFileNameList,
   clearDirectory,
+  getExtensionFileRule
 }
 
 module.exports = {
