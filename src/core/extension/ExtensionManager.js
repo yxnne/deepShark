@@ -1,21 +1,28 @@
-const { toolDescriptions, toolFunctions } = require('./DefaultExtension')
+const { descriptions, functions } = require('./DefaultExtension')
 const path = require('path')
 const fs = require('fs-extra')
 const axios = require('axios')
 const dayjs = require('dayjs')
+const lodash = require('lodash')
+const shelljs = require('shelljs')
+const iconv = require('iconv-lite') // 用于编码转换
+const os = require('os') // 用于判断系统类型
 const { logError } = require('../utils')
 
 class ExtensionManager {
   constructor(aiCli) {
     this.aiCli = aiCli
     this.extensions = {
-      toolDescriptions,
-      toolFunctions,
+      descriptions,
+      functions,
     }
     this.parseExtends(this.aiCli.config.extensions || [])
   }
 
   parseExtends(configExtends) {
+    // 自动扫描扩展模块
+    const autoScannedExtends = this.autoScanExtensions()
+    configExtends = configExtends.concat(autoScannedExtends)
     for (const extensionPath of configExtends) {
       try {
         // 解析扩展路径
@@ -29,39 +36,136 @@ class ExtensionManager {
         }
 
         // 动态加载扩展模块
-        let { toolDescriptions, toolFunctions } = require(resolvedPath)
-        toolDescriptions = toolDescriptions.map(item => {
+        let { descriptions, functions } = require(resolvedPath)
+        descriptions = descriptions.map((item) => {
           if (!item.type) {
             return {
               type: 'function',
-              function: item
+              function: item,
             }
           } else {
             return item
           }
         })
-        this.extensions.toolDescriptions =
-          this.extensions.toolDescriptions.concat(toolDescriptions)
-        this.extensions.toolFunctions = Object.assign(
-          this.extensions.toolFunctions,
-          toolFunctions,
+        this.extensions.descriptions =
+          this.extensions.descriptions.concat(descriptions)
+        this.extensions.functions = Object.assign(
+          this.extensions.functions,
+          functions,
         )
       } catch (error) {
-        logError(
-          `Error loading extension ${extensionPath}: ${error.message}`,
-        )
+        logError(`Error loading extension ${extensionPath}: ${error.message}`)
       }
     }
-    const toolFunctions = this.extensions.toolFunctions
-    for (const fnName of Object.keys(toolFunctions)) {
-      toolFunctions[fnName] = toolFunctions[fnName].bind(this.aiCli)
+    const functions = this.extensions.functions
+    for (const fnName of Object.keys(functions)) {
+      functions[fnName] = functions[fnName].bind(this.aiCli)
       if (fnName === 'test') {
-        toolFunctions[fnName]()
+        functions[fnName]()
       }
     }
-    toolFunctions['fs']  = fs
-    toolFunctions['axios']  = axios
-    toolFunctions['dayjs']  = dayjs
+    functions['fs'] = fs
+    functions['axios'] = axios
+    functions['dayjs'] = dayjs
+    functions['lodash'] = lodash
+  }
+
+  // 自动扫描node_modules和命令执行目录下的扩展模块
+  autoScanExtensions() {
+    const result = []
+    // 扫描本程序所在目录下node_modules目录
+    const nodeModulesPath1 = path.resolve(__dirname, '../../../node_modules')
+    // 扫描根node_modules目录
+    const nodeModulesPath2 = this._executeCommand('npm root -g')
+    // 扫描命令执行目录下node_modules目录
+    const nodeModulesPath3 = path.resolve(process.cwd(), 'node_modules')
+    // 扫描命令执行目录
+    const nodeModulesPath4 = process.cwd()
+    for (const dirPath of [
+      nodeModulesPath1,
+      nodeModulesPath2,
+      nodeModulesPath3,
+      nodeModulesPath4,
+    ]) {
+      if (!fs.existsSync(dirPath)) {
+        continue
+      }
+      const fileNames = fs.readdirSync(dirPath)
+      for (const fileName of fileNames) {
+        // 如果是目录且目录名称前缀是"@deepfish/"，则认为是扩展模块
+        const extensionDir = path.resolve(dirPath, fileName)
+        if (
+          fileName === '@deepfish' &&
+          fs.statSync(extensionDir).isDirectory()
+        ) {
+          const subDirNames = fs.readdirSync(extensionDir)
+          for (const subDirName of subDirNames) {
+            const subDirPath = path.resolve(extensionDir, subDirName)
+            if (fs.statSync(subDirPath).isDirectory()) {
+              const extNames = fs.readdirSync(subDirPath)
+              const jsFiles = extNames.filter(
+                (file) => file.endsWith('.js') || file.endsWith('.cjs'),
+              )
+              jsFiles.forEach((jsFile) => {
+                const jsFilePath = path.resolve(subDirPath, jsFile)
+                // 读取文件，查询文件内是否存在‘descriptions’和‘functions’
+                const fileContent = fs.readFileSync(jsFilePath, 'utf-8')
+                if (
+                  fileContent.includes('descriptions') &&
+                  fileContent.includes('functions')
+                ) {
+                  result.push(jsFilePath)
+                }
+              })
+            }
+          }
+        }
+      }
+    }
+    return result
+  }
+
+  _executeCommand(command) {
+    return new Promise((resolve, reject) => {
+      const platform = os.platform()
+      const targetEncoding = platform === 'win32' ? 'gbk' : 'utf-8' // Windows(含PowerShell)用gbk，Linux/macOS用utf-8
+      shelljs.exec(
+        command,
+        {
+          async: true,
+          cwd: process.cwd(),
+          encoding: 'binary',
+          silent: true,
+        },
+        (code, stdout, stderr) => {
+          try {
+            const stdoutUtf8 = iconv.decode(
+              Buffer.from(stdout, 'binary'),
+              targetEncoding,
+            )
+            const stderrUtf8 = iconv.decode(
+              Buffer.from(stderr, 'binary'),
+              targetEncoding,
+            )
+            if (stderrUtf8 && !stderrUtf8.trim().startsWith('WARNING')) {
+              // 过滤无关警告
+              const error = new Error(
+                `Command failed (code ${code}): ${stderrUtf8}`,
+              )
+              reject(error)
+              return
+            }
+            resolve(stdoutUtf8)
+          } catch (decodeError) {
+            reject(
+              new Error(
+                `Failed to parse command output: ${decodeError.message}`,
+              ),
+            )
+          }
+        },
+      )
+    })
   }
 }
 

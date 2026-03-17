@@ -1,51 +1,75 @@
-# AI Command Tool
+<div align="center" style="display:flex;align-items: center;justify-content: center;">
+  <img src="./images/logo2.png" alt="DeepFish" style="width:55px;" />
+  <span style="font-size: 30px;font-weight: bold;color:#3386FE">DeepFish</span>
+</div>
 
-An AI command-line tool that converts natural language instructions into operating system commands and file operations, supporting Ollama, DeepSeek, and other models compatible with the OpenAI API specification.
+---
 
-## Language
+<div align="center" style="line-height: 1">
+  <img alt="QQ" src="https://img.shields.io/badge/QQ-306863030-green.svg" />
+  <img
+    alt="WeChat"
+    src="https://img.shields.io/badge/WeChat-MrRoman_123-green.svg"
+  />
+  <a href="https://github.com/qq306863030/deepfish">
+    <img
+      alt="GitHub"
+      src="https://img.shields.io/badge/GitHub-DeepFish-blue.svg"
+  /></a>
+  <a href="https://www.npmjs.com/package/deepfish">
+    <img alt="NPM" src="https://img.shields.io/badge/NPM-DeepFish-blue.svg"
+  /></a>
+  <img
+    alt="Code License"
+    src="https://img.shields.io/badge/Code_License-MIT-blue"
+  />
+</div>
+
+<img src="./images/banner.png" alt="AI Command Line Tool Screenshot" style="width:100%;text-align:center;" />
+
+
 
 - [English](README.md) | [中文](README_CN.md)
 
-## Screenshot
+[TOC]
 
-![AI Command Tool Screenshot](https://raw.githubusercontent.com/qq306863030/ai-cmd-tool/main/screenshot/2.png)
 
-## Repository
+## 1. Introduction
 
-[GitHub: qq306863030/ai-cmd-tool](https://github.com/qq306863030/ai-cmd-tool)
-[GitHub: qq306863030/ai-cmd-tool-extensions](https://github.com/qq306863030/ai-cmd-tool-extensions)
+An AI command-line tool that converts natural language instructions into operating system commands or file operation commands. Supports DeepSeek, Ollama, and other models compatible with the OpenAI API specification.
+[Extensions](https://github.com/qq306863030/deepfish-extensions)
 
-## Installation
+## 2. Installation
 
 ### Prerequisites
 
 - Node.js (v22.14.0 or higher)
 - npm or yarn
 
-### Install via npm
+### Installation via npm
 
 ```bash
-npm install -g ai-cmd-tool
+npm install -g deepfish
 ```
 
-### Install from source
+### Installation from Source
 
 ```bash
-git clone https://github.com/qq306863030/ai-cmd-tool.git
-cd ai-cmd-tool
+git clone https://github.com/qq306863030/deepfish.git
+cd deepfish
 npm install
 npm link
 ```
 
-## Quick Start
+## 3. Quick Start
 
 ```bash
-ai config add # Enter "deepseek" as the name, and input your DeepSeek API key
-ai use deepseek
-ai Write a future science fiction article about future technology in the current directory, output in markdown format
+ai config add # Enter a name, then select deepseek, and enter your DeepSeek API key
+ai use [the_name_you_entered]
+ai "Help me write an article about future technology in the current directory, output in markdown format"
 ```
 
-## Configuration
+## 4. Configuration
 
 ### Initial Setup
 
@@ -55,15 +79,35 @@ Run the configuration wizard to set up your AI service:
 ai config add
 ```
 
-This will prompt you to configure:
+This will prompt you to configure the following:
 
-- **AI Service Type**: Choose from Ollama, DeepSeek, or OpenAI
-- **API Base URL**: Default URLs provided for each service
-- **Model Name**: Select the AI model to use
+- **AI Service Type**: Choose DeepSeek, Ollama, or OpenAI
+- **API Base URL**: Default URL provided for each service
+- **Model Name**: Choose the AI model to use
 - **API Key**: Required for DeepSeek and OpenAI
-- **Temperature**: Control response randomness (0-2)
+- **Temperature**: Controls response randomness (0-2)
 - **Max Tokens**: Maximum response length
-- **Streaming Output**: Enable/disable streaming responses
+- **Streaming Output**: Enable/disable streaming response
+
+### Configuration Commands
+
+```bash
+# Configuration commands
+ai config add # Add a new AI configuration
+ai config ls # List all AI configurations
+ai config use <name> # Set the specified AI configuration as the current one
+ai config del <name> # Delete the specified AI configuration
+ai config view [name] # View details of the specified AI configuration
+ai config edit # Edit the configuration file manually
+ai config reset # Reset configuration
+ai config clear # Delete the configuration file
+
+# Extension commands
+ai ext add <filename> # Add an extension tool
+ai ext del <filepath> # Remove an extension tool by file path
+ai ext del <index> # Remove an extension tool by index
+ai ext ls # List all extension tools
+```
 
 ### Configuration File Structure
 
@@ -83,114 +127,46 @@ module.exports = {
       stream: true, // Enable/disable streaming output
     }
   ],
-  currentAi: "default", // Current active AI configuration name
-  maxIterations: 10, // Maximum iterations for agent workflow
+  currentAi: "default", // Name of the currently active AI configuration
+  maxIterations: -1, // Maximum iterations for agent workflow, -1 for unlimited
+  maxMessagesLength: 50000, // Maximum compression length
+  maxMessagesCount: 40, // Maximum compression count
   extensions: [], // List of extension file paths
-  isRecordHistory: false, // Whether to create a record file for workflow execution
-  isLog: false // Whether to create a log file for workflow execution
+  isRecordHistory: false, // Whether to create workflow execution record files
+  isLog: false // Whether to create workflow execution logs
 };
 ```
 
-### Configuration Commands
-
-Add a new AI configuration:
-
-```bash
-ai config add
-```
-
-List all AI configurations:
-
-```bash
-ai config ls
-```
-
-Set the specified AI configuration as current:
-
-```bash
-ai config use <name>
-```
-
-Delete the specified AI configuration:
-
-```bash
-ai config del <name>
-```
-
-View details of the specified AI configuration:
-
-```bash
-ai config view [name]
-```
-
-Edit configuration file:
-
-```bash
-ai config edit
-```
-
-Reset configuration:
-
-```bash
-ai config reset
-```
-
-Clear configuration:
-
-```bash
-ai config clear
-```
-
-Add extension tool:
-
-```bash
-ai ext add <filename>
-```
-
-Remove extension tool:
-
-```bash
-ai ext del <filename>
-ai ext del <index>
-```
-
-List all extension tools:
-
-```bash
-ai ext ls
-```
-
-## Usage
+## 5. Usage
 
 ### Interactive Mode
 
-Start an interactive session (multi-turn conversation):
+Start an interactive session (multi-turn dialogue):
 
 ```bash
 ai
 ```
 
-Or explicitly:
+Or explicitly specify:
 
 ```bash
 ai -i or ai -interactive
 ```
-
 
 ### Direct Command Mode
 
 Execute a single command:
 
 ```bash
-ai "create a new file named hello.txt with content 'Hello World'"
+ai "Create a file named hello.txt with the content 'Hello World'"
 ```
 
-### Examples
+### Usage Examples
 
 **File Operations:**
 
 ```bash
-ai "Create 10 text documents and input 100 random texts respectively"
+ai "Create 10 text documents, each with 100 random characters"
 ai "Clear the current directory"
 ```
 
@@ -198,20 +174,20 @@ ai "Clear the current directory"
 
 ```bash
 ai "Create a simple Express server with a /hello endpoint"
-ai "Create a browser-based plane shooting game"
+ai "Create a browser-based airplane shooting game"
 ```
 
 **System Commands:**
 
 ```bash
 ai "List all files in the current directory with their sizes"
-ai "Check the disk usage of the current directory"
+ai "Check disk usage for the current directory"
 ```
 
-**Extension Tool Generation：**
+**Extension Tool Generation:**
 
 ```bash
-ai "Get current weather information for a city To weather.js"
+ai "Create a weather.js extension tool for querying weather"
 ai ext add weather.js
 ```
 
@@ -224,39 +200,24 @@ ai "I have ffmpeg5 installed on my system, help me convert all MP4 files in the 
 **File Organization:**
 
 ```bash
-ai "Organize all files in the model directory by month into the model2 directory, date format is YYYY-MM"
+ai "Classify all files under the 'model' directory into the 'model2' directory by month, date format YYYY-MM"
 ```
 
-## Recommendations
+## 6. Extension Development
 
-### AI Service Selection
-
-**Recommendation: Use online AI services (DeepSeek/OpenAI) for best results**
-
-While local AI services like Ollama provide privacy and offline capabilities, they may have limitations in:
-
-- **Response accuracy**: Local models may not be as rigorous or precise as online models
-- **Code quality**: Generated code may require more manual review and correction
-- **Complex task handling**: May struggle with multi-step or complex operations
-- **Language understanding**: Better language models are available through online services
-
-For production use or complex tasks, we recommend using DeepSeek, OpenAI services, or Ollama's cloud service for more reliable and accurate results.
-
-## Extension Development
-
-Extensions allow you to add custom functions that the AI can use in its workflow, for complex projects, you can try to generate extensions first using this program, then add them using "ai ext add <extension filename>", and finally complete the task using the program.
+Extensions allow you to add custom functions that AI can use in its workflows. For complex processes, you can develop them yourself or try generating extensions using this program, then register the extension with the program and use the command line to complete tasks.
 
 ### Creating an Extension
 
-Extensions should export an object with `toolDescriptions` (array of tool descriptions) and `toolFunctions` (object of functions). You can view the [example extension](https://github.com/qq306863030/ai-cmd-tool-extensions) for reference.
-en: You can create a weather extension tool by using the command 'ai "Get current weather information for a city To weather.js'
-
+1. Extensions should export an object containing `descriptions` (an array of tool descriptions) and `functions` (an object of functions).
+2. Tip: You can generate extensions via AI, e.g., `ai "Create a weather.js extension tool for querying weather"`
+3. View [example extensions](https://github.com/qq306863030/deepfish-extensions).
 
 ```javascript
 // Example extension: Weather Extension
 const axios = require('axios');
 
-const toolDescriptions = [
+const descriptions = [
   {
     type: 'function',
     function: {
@@ -273,49 +234,72 @@ const toolDescriptions = [
   }
 ];
 
-const toolFunctions = {
+const functions = {
   async getWeather(city) {
     // Implement weather API call
     const response = await axios.get(`https://api.weatherapi.com/v1/current.json?key=YOUR_KEY&q=${city}`);
-    return `Weather in ${city}: ${response.data.current.temp_c}°C, ${response.data.current.condition.text}`;
+    return `${city} weather: ${response.data.current.temp_c}°C, ${response.data.current.condition.text}`;
   }
 };
 
 module.exports = {
-  toolDescriptions,
-  toolFunctions
+  descriptions,
+  functions
 };
 ```
 
-#### Registering an Extension
+#### Registering Extensions
 
 **Method 1: Using Command Line**
 
 ```bash
-ai ext add <filename>
+ai ext add <filename> # ai ext add weather.js
+ai ext add . # Traverse the current directory, automatically scan and add extensions
 ```
 
 **Method 2: Manual Configuration**
 
-1. Save your extension to a file (e.g., `weather-extension.js`)
+1. ai config edit
 2. Add it to your configuration:
 
 ```javascript
 module.exports = {
-  // ... other config
+  // ... other configurations
   extensions: [
     '/path/to/weather-extension.js'
   ],
 };
 ```
 
-## Advanced Usage
+**Method 3: Automatic Scanning**
+
+The program automatically scans the following directories for directories starting with "@deepfish/" on startup.
+1. The npm global node_modules directory (extensions can be installed via `npm install -g @deepfish/xxxx`)
+2. The node_modules directory in the current working directory
+3. The current working directory
+
+## 7. Recommendations
+
+### AI Service Selection
+
+**Recommendation: Use online AI services (DeepSeek/OpenAI) for best results**
+
+While local AI services (like Ollama) offer privacy and offline capabilities, they may have the following limitations:
+
+- **Response Accuracy**: Local models may not be as rigorous and precise as online models
+- **Code Quality**: Generated code may require more manual review and correction
+- **Complex Task Handling**: May encounter difficulties with multi-step or complex operations
+- **Language Understanding**: Online services provide better language models
+
+For production environments or complex tasks, we recommend using DeepSeek, OpenAI services, or cloud services within Ollama for more reliable and accurate results.
+
+## 8. Usage Notes
 
 ### Using Relative Paths
 
-The AI always uses relative paths from the current working directory. This ensures portability across different systems.
+AI always uses paths relative to the current working directory.
 
-## Troubleshooting
+## 9. Troubleshooting
 
 ### Configuration Issues
 
@@ -328,23 +312,22 @@ ai config reset
 ### AI Service Connection
 
 - **Ollama**: Ensure Ollama is running locally on port 11434
-- **DeepSeek/OpenAI**: Verify your API key is correct and you have sufficient credits
+- **DeepSeek/OpenAI**: Verify your API key is correct and you have sufficient quota
 
-### Plugin/Extension Not Loading
+### Extension Not Loading
 
-- Check the file path in your configuration
-- Ensure the file exports the correct class
+- Check the file path in the configuration
+- Ensure the file exports the correct object
 - Verify the file has no syntax errors
 
-## Contributing
+## 10. Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
-## License
+## 11. License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Support
+## 12. Support
 
-For issues and questions, please open an issue on the GitHub repository.
-
+For issues and questions, please submit an issue on the GitHub repository.

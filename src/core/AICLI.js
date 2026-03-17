@@ -1,45 +1,30 @@
-const OllamaService = require('./ai-services/OllamaService')
-const DeepSeekService = require('./ai-services/DeepSeekService')
-const OpenaiService = require('./ai-services/OpenaiService')
 const ExtensionManager = require('./extension/ExtensionManager')
 const readline = require('readline')
 const { logError } = require('./utils')
 const { GlobalVariable } = require('./globalVariable')
-const AiWorkFlow = require('./ai-services/AiWorkFlow')
-const Recorder = require('./ai-services/AiWorkFlow/AiRecorder')
+const AiRecorder = require('./ai-services/AiWorker/AiRecorder')
+const AIService = require('./ai-services/AIService')
 
 class AICLI {
   constructor(config) {
-    GlobalVariable.aiCli = this
-    GlobalVariable.isRecordHistory = Boolean(config.isRecordHistory)
-    GlobalVariable.isLog = Boolean(config.isLog)
     this.config = config
-    this.aiService = null
-    this.extensionManager = null
-    this.aiWorkFlow = null
-    this.recorder = null
+    // 初始化扩展
+    this.extensionManager = new ExtensionManager(this)
+    this.Tools = this.extensionManager.extensions.functions
+    this.aiRecorder = new AiRecorder(this);
     const currentName = this.config.currentAi || 'default'
     const currentAiConfig = this.config.ai.find(
       (cfg) => cfg.name === currentName,
     )
     this.aiConfig = currentAiConfig || this.config.ai[0]
-    this.initialize()
+    const serviceType = this.aiConfig?.type || 'ollama'
+    this.aiService = new AIService(serviceType, this)
+    GlobalVariable.aiCli = this
+    GlobalVariable.aiRecorder = this.aiRecorder
+    GlobalVariable.isRecordHistory = this.config.isRecordHistory || false
+    GlobalVariable.isLog = this.config.isLog || false
   }
-  // 解析配置文件
-  initialize() {
-    this.recorder = new Recorder(this);
-    const service = this.aiConfig?.type || 'ollama'
-    if (service === 'deepseek') {
-      this.aiService = new DeepSeekService(this)
-    } else if (service === 'openai') {
-      this.aiService = new OpenaiService(this)
-    } else {
-      this.aiService = new OllamaService(this)
-    }
-    // 初始化扩展
-    this.extensionManager = new ExtensionManager(this)
-    this.Tools = this.extensionManager.extensions.toolFunctions
-  }
+  
   // 单轮对话
   async run(userPrompt) {
     try {

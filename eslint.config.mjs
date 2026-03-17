@@ -14,7 +14,8 @@ export default defineConfig([
       }
     },
     rules: {
-      "no-unused-vars": "off"
+      "no-unused-vars": "off",
+      "preserve-caught-error": "off"
     }
   },
   { files: ["**/*.js"], languageOptions: { sourceType: "commonjs" } },

@@ -1,7 +1,7 @@
-const toolDescriptions = [] // openai能识别的描述
-const toolFunctions = {} // key为函数名称，value为方法体
+const descriptions = [] // openai能识别的描述
+const functions = {} // key为函数名称，value为方法体
 
 module.exports = {
-  toolDescriptions,
-  toolFunctions,
+  descriptions,
+  functions,
 }

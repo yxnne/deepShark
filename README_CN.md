@@ -1,21 +1,46 @@
-# AI 命令行工具
+<div align="center" style="display:flex;align-items: center;justify-content: center;">
+  <img src="./images/logo2.png" alt="DeepFish" style="width:55px;" />
+  <span style="font-size: 30px;font-weight: bold;color:#3386FE">DeepFish</span>
+</div>
 
-一款AI命令行工具，可将自然语言指令转换为操作系统命令或文件操作指令，支持Ollama、DeepSeek及其他兼容OpenAI API规范的模型。
+---
 
-## 语言
+<div align="center" style="line-height: 1">
+  <img alt="QQ" src="https://img.shields.io/badge/QQ-306863030-green.svg" />
+  <img
+    alt="WeChat"
+    src="https://img.shields.io/badge/WeChat-MrRoman_123-green.svg"
+  />
+  <a href="https://github.com/qq306863030/deepfish">
+    <img
+      alt="GitHub"
+      src="https://img.shields.io/badge/GitHub-DeepFish-blue.svg"
+  /></a>
+  <a href="https://www.npmjs.com/package/deepfish">
+    <img alt="NPM" src="https://img.shields.io/badge/NPM-DeepFish-blue.svg"
+  /></a>
+  <img
+    alt="Code License"
+    src="https://img.shields.io/badge/Code_License-MIT-blue"
+  />
+</div>
+
+<img src="./images/banner.png" alt="AI 命令行工具截图" style="width:100%;text-align:center;" />
+
+
+
 
 - [English](README.md) | [中文](README_CN.md)
 
-## 截图
+[TOC]
 
-![AI 命令行工具截图](https://raw.githubusercontent.com/qq306863030/ai-cmd-tool/main/screenshot/2.png)
 
-## 仓库
+## 1. 介绍
 
-[GitHub: qq306863030/ai-cmd-tool](https://github.com/qq306863030/ai-cmd-tool)
-[GitHub: qq306863030/ai-cmd-tool-extensions](https://github.com/qq306863030/ai-cmd-tool-extensions)
+一款AI命令行工具，可将自然语言指令转换为操作系统命令或文件操作指令，支持DeepSeek、Ollama及其他兼容OpenAI API规范的模型。
+[扩展](https://github.com/qq306863030/deepfish-extensions)
 
-## 安装
+## 2. 安装
 
 ### 前置要求
 
@@ -25,27 +50,27 @@
 ### 通过npm安装
 
 ```bash
-npm install -g ai-cmd-tool
+npm install -g deepfish
 ```
 
 ### 从源码安装
 
 ```bash
-git clone https://github.com/qq306863030/ai-cmd-tool.git
-cd ai-cmd-tool
+git clone https://github.com/qq306863030/deepfish.git
+cd deepfish
 npm install
 npm link
 ```
 
-## 快速使用
+## 3. 快速使用
 
 ```bash
-ai config add # 名称输入deepseek, 并输入你的deepseek api key
-ai use deepseek
+ai config add # 输入名称, 然后选择deepseek，并输入你的deepseek api key
+ai use 你输入的名称
 ai ”帮我在当前目录写一篇关于未来科技的文章，用markdown格式输出“
 ```
 
-## 配置
+## 4. 配置
 
 ### 初始设置
 
@@ -57,13 +82,33 @@ ai config add
 
 这将提示你配置以下内容：
 
-- **AI服务类型**：选择Ollama、DeepSeek或OpenAI
+- **AI服务类型**：选择DeepSeek、Ollama或OpenAI
 - **API基础URL**：为每个服务提供默认URL
 - **模型名称**：选择要使用的AI模型
 - **API密钥**：DeepSeek和OpenAI需要
 - **Temperature**：控制响应随机性（0-2）
 - **Max Tokens**：最大响应长度
 - **Streaming Output**：启用/禁用流式响应
+
+### 配置命令
+
+```bash
+# 配置命令
+ai config add # 添加新的AI配置
+ai config ls # 列出所有AI配置
+ai config use <name> # 设置指定的AI配置为当前配置
+ai config del <name> # 删除指定的AI配置
+ai config view [name] # 查看指定AI配置的详细信息
+ai config edit # 编辑配置文件手动编辑配置文件
+ai config reset # 重置配置
+ai config clear # 删除配置文件
+
+# 扩展命令
+ai ext add <filename> # 添加扩展工具
+ai ext del <filepath> # 通过文件路径移除扩展工具
+ai ext del <index> # 通过索引移除扩展工具
+ai ext ls # 列出所有扩展工具
+```
 
 ### 配置文件结构
 
@@ -84,83 +129,16 @@ module.exports = {
     }
   ],
   currentAi: "default", // 当前活动的AI配置名称
-  maxIterations: 10, // 代理工作流的最大迭代次数
+  maxIterations: -1, // 代理工作流的最大迭代次数，-1为不限制迭代次数
+  maxMessagesLength: 50000, // 最大压缩长度
+  maxMessagesCount: 40, // 最大压缩数量
   extensions: [], // 扩展文件路径列表
   isRecordHistory: false, // 是否创建工作流执行记录文件
   isLog: false // 是否创建工作流执行日志
 };
 ```
 
-### 配置命令
-
-添加新的AI配置：
-
-```bash
-ai config add
-```
-
-列出所有AI配置：
-
-```bash
-ai config ls
-```
-
-设置指定的AI配置为当前配置：
-
-```bash
-ai config use <name>
-```
-
-删除指定的AI配置：
-
-```bash
-ai config del <name>
-```
-
-查看指定AI配置的详细信息：
-
-```bash
-ai config view [name]
-```
-
-编辑配置文件：
-
-```bash
-ai config edit
-```
-
-重置配置：
-
-```bash
-ai config reset
-```
-
-清除配置：
-
-```bash
-ai config clear
-```
-
-添加扩展工具：
-
-```bash
-ai ext add <filename>
-```
-
-移除扩展工具：
-
-```bash
-ai ext del <filename>
-ai ext del <index>
-```
-
-列出所有扩展工具：
-
-```bash
-ai ext ls
-```
-
-## 使用方法
+## 5. 使用方法
 
 ### 交互模式
 
@@ -226,35 +204,21 @@ ai "我的系统上安装了ffmpeg5，帮我将目录中的所有MP4文件转换
 ai "将model目录下的所有文件按月份分类到model2目录中，日期格式为YYYY-MM"
 ```
 
-## 建议
+## 6. 扩展开发
 
-### AI服务选择
-
-**建议：使用在线AI服务（DeepSeek/OpenAI）以获得最佳效果**
-
-虽然本地AI服务（如Ollama）提供隐私保护和离线能力，但它们可能存在以下限制：
-
-- **响应准确性**：本地模型可能不如在线模型严谨和精确
-- **代码质量**：生成的代码可能需要更多的人工审查和修正
-- **复杂任务处理**：在多步骤或复杂操作上可能遇到困难
-- **语言理解**：在线服务提供更好的语言模型
-
-对于生产环境或复杂任务，我们建议使用DeepSeek或OpenAI服务，或Ollama中的云端服务，以获得更可靠和准确的结果。
-
-## 扩展开发
-
-扩展允许您添加AI可以在其工作流中使用的自定义函数, 对于复杂的项目可以尝试先使用本程序生成扩展，然后执行"ai ext add <扩展文件名>"来添加扩展,在使用程序来完成任务。
+扩展允许您添加AI可以在其工作流中使用的自定义函数, 对于复杂的流程也可以自行开发或尝试使用本程序生成扩展，然后将扩展注册到程序中，在使用命令行来完成任务。
 
 ### 创建扩展
 
-扩展应导出包含 `toolDescriptions`（工具描述数组）和 `toolFunctions`（函数对象）的对象。可查看[示例扩展](https://github.com/qq306863030/ai-cmd-tool-extensions)。
-提示：可以通过AI生成扩展，例如"ai "创建一个用于查询天气的扩展工具weather.js"
+1. 扩展应导出包含 `descriptions`（工具描述数组）和 `functions`（函数对象）的对象。
+2. 提示：可以通过AI生成扩展，例如"ai "创建一个用于查询天气的扩展工具weather.js"
+3. 可查看[示例扩展](https://github.com/qq306863030/deepfish-extensions)。
 
 ```javascript
 // 示例扩展：天气扩展
 const axios = require('axios');
 
-const toolDescriptions = [
+const descriptions = [
   {
     type: 'function',
     function: {
@@ -271,7 +235,7 @@ const toolDescriptions = [
   }
 ];
 
-const toolFunctions = {
+const functions = {
   async getWeather(city) {
     // 实现天气API调用
     const response = await axios.get(`https://api.weatherapi.com/v1/current.json?key=YOUR_KEY&q=${city}`);
@@ -280,8 +244,8 @@ const toolFunctions = {
 };
 
 module.exports = {
-  toolDescriptions,
-  toolFunctions
+  descriptions,
+  functions
 };
 ```
 
@@ -290,12 +254,13 @@ module.exports = {
 **方法1：使用命令行**
 
 ```bash
-ai ext add <filename>
+ai ext add <filename> # ai ext add weather.js
+ai ext add . # 遍历当前目录，自动扫描并添加扩展
 ```
 
 **方法2：手动配置**
 
-1. 将扩展保存到文件中（例如`weather-extension.js`）
+1. ai config edit
 2. 将其添加到您的配置中：
 
 ```javascript
@@ -307,13 +272,35 @@ module.exports = {
 };
 ```
 
-## 高级用法
+**方法3：自动扫描**
+
+程序启动时会自动扫描以下目录中以“@deepfish/”开头的目录。
+1.程序npm全局node_modules目录(扩展可通过"npm install -g @deepfish/xxxx" 安装)
+2.当前工作目录中的node_modules目录
+3.当前工作目录
+
+## 7. 建议
+
+### AI服务选择
+
+**建议：使用在线AI服务（DeepSeek/OpenAI）以获得最佳效果**
+
+虽然本地AI服务（如Ollama）提供隐私保护和离线能力，但它们可能存在以下限制：
+
+- **响应准确性**：本地模型可能不如在线模型严谨和精确
+- **代码质量**：生成的代码可能需要更多的人工审查和修正
+- **复杂任务处理**：在多步骤或复杂操作上可能遇到困难
+- **语言理解**：在线服务提供更好的语言模型
+
+对于生产环境或复杂任务，我们建议使用DeepSeek或OpenAI服务，或Ollama中的云端服务，以获得更可靠和准确的结果。
+
+## 8. 使用说明
 
 ### 使用相对路径
 
-AI始终使用相对于当前工作目录的相对路径。这确保了跨不同系统的可移植性。
+AI始终使用相对于当前工作目录的相对路径。
 
-## 故障排除
+## 9. 故障排除
 
 ### 配置问题
 
@@ -334,14 +321,14 @@ ai config reset
 - 确保文件导出正确的对象
 - 验证文件没有语法错误
 
-## 贡献
+## 10. 贡献
 
 欢迎贡献！请随时提交Pull Request。
 
-## 许可证
+## 11. 许可证
 
 本项目采用MIT许可证 - 详见[LICENSE](LICENSE)文件。
 
-## 支持
+## 12. 支持
 
 如有问题和疑问，请在GitHub仓库上提交issue。

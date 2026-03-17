@@ -1,5 +1,5 @@
 {
-  "name": "ai-cmd-tool",
+  "name": "deepfish",
   "version": "1.0.8",
   "description": "An AI command-line tool that converts natural language instructions into operating system commands and file operations, supporting Ollama, DeepSeek, and other models compatible with the OpenAI API specification.",
   "main": "src/index.js",
@@ -11,23 +11,23 @@
   },
   "keywords": [
     "ai",
-    "command-line",
-    "ollama",
     "deepseek",
-    "openai",
+    "cli",
+    "command-line",
     "cmd",
-    "cli"
+    "openai",
+    "ollama"
   ],
   "author": "Roman",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/qq306863030/ai-cmd-tool.git"
+    "url": "https://github.com/qq306863030/deepfish.git"
   },
   "bugs": {
-    "url": "https://github.com/qq306863030/ai-cmd-tool/issues"
+    "url": "https://github.com/qq306863030/deepfish/issues"
   },
-  "homepage": "https://github.com/qq306863030/ai-cmd-tool#readme",
+  "homepage": "https://github.com/qq306863030/deepfish#readme",
   "dependencies": {
     "axios": "^1.13.5",
     "chalk": "^4.1.0",
@@ -45,5 +45,11 @@
     "@eslint/json": "^1.0.1",
     "eslint": "^10.0.3",
     "globals": "^17.4.0"
-  }
+  },
+  "files": [
+    "src",
+    "README.md",
+    "README_CN.md",
+    "LICENSE"
+  ]
 }

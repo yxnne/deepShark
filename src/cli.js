@@ -2,19 +2,17 @@
 const { program } = require("commander");
 const inquirer = require("inquirer");
 const fs = require("fs");
-const path = require("path");
-const os = require("os");
 const AICLI = require("./core/AICLI");
-const { logSuccess, logError, addExtensionToConfig, removeExtensionFromConfig, viewExtensionsFromConfig } = require("./core/utils");
-const userConfigPath = path.join(os.homedir(), ".ai-cmd.config.js");
-const DefaultConfig = require("./core/DefaultConfig");
+const { logSuccess, logError, addExtensionToConfig, removeExtensionFromConfig, viewExtensionsFromConfig, getConfigPath } = require("./core/utils");
+const userConfigPath = getConfigPath()
+const getDefaultConfig = require("./core/DefaultConfig");
 
 async function handleMissingConfig() {
   logError("Configuration file not initialized");
   
   // Create new configuration file with empty ai array
   console.log("Creating new configuration file:", userConfigPath);
-  const configContent = `module.exports = ${JSON.stringify(DefaultConfig(), null, 2)}`;
+  const configContent = `module.exports = ${JSON.stringify(getDefaultConfig(), null, 2)}`;
   fs.writeFileSync(userConfigPath, configContent);
   console.log("Configuration file created with empty AI configurations.");
 }
@@ -34,7 +32,7 @@ async function runSetupCommand(isAdd = false) {
       );
     }
   } else {
-    currentConfig = DefaultConfig();
+    currentConfig = getDefaultConfig();
   }
 
   const questions = [
@@ -225,7 +223,7 @@ async function runSetupCommand(isAdd = false) {
 
   if (isAdd) {
     // Add new AI configuration
-    const existingConfig = fs.existsSync(userConfigPath) ? require(userConfigPath) : DefaultConfig();
+    const existingConfig = fs.existsSync(userConfigPath) ? require(userConfigPath) : getDefaultConfig();
     
     // Check if configuration with the same name already exists
     const existingIndex = existingConfig.ai.findIndex(config => config.name === aiConfig.name);
@@ -241,7 +239,7 @@ async function runSetupCommand(isAdd = false) {
     logSuccess(`AI configuration "${aiConfig.name}" added successfully!`);
   } else {
     // Update default configuration
-    const existingConfig = fs.existsSync(userConfigPath) ? require(userConfigPath) : DefaultConfig();
+    const existingConfig = fs.existsSync(userConfigPath) ? require(userConfigPath) : getDefaultConfig();
     
     // Add the new configuration to the array
     existingConfig.ai.push(aiConfig);
@@ -338,7 +336,7 @@ configCommand
       if (createConfig) {
         // Create new configuration file with empty ai array
         console.log("Creating new configuration file:", userConfigPath);
-        const newConfig = DefaultConfig();
+        const newConfig = getDefaultConfig();
         const configContent = `module.exports = ${JSON.stringify(newConfig, null, 2)}`;
         fs.writeFileSync(userConfigPath, configContent);
         console.log("Configuration file created with empty AI configurations.");
@@ -390,7 +388,7 @@ configCommand
       if (confirm) {
         console.log("Resetting configuration file:", userConfigPath);
         // Create new default configuration and overwrite existing file
-        const configContent = `module.exports = ${JSON.stringify(DefaultConfig(), null, 2)}`;
+        const configContent = `module.exports = ${JSON.stringify(getDefaultConfig(), null, 2)}`;
         fs.writeFileSync(userConfigPath, configContent);
         console.log("Configuration file has been reset to default settings.");
       } else {
@@ -399,7 +397,7 @@ configCommand
       }
     } else {
       // Create new configuration file with empty ai array
-      const newConfig = DefaultConfig();
+      const newConfig = getDefaultConfig();
       const configContent = `module.exports = ${JSON.stringify(newConfig, null, 2)}`;
       fs.writeFileSync(userConfigPath, configContent);
       console.log("Configuration file created with empty AI configurations.");
@@ -531,7 +529,7 @@ configCommand
       if (createConfig) {
         // Create new configuration file with empty ai array
         console.log("Creating new configuration file:", userConfigPath);
-        const newConfig = DefaultConfig();
+        const newConfig = getDefaultConfig();
         const configContent = `module.exports = ${JSON.stringify(newConfig, null, 2)}`;
         fs.writeFileSync(userConfigPath, configContent);
         console.log("Configuration file created with empty AI configurations.");

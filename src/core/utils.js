@@ -2,7 +2,6 @@ const chalk = require("chalk");
 const path = require("path");
 const os = require("os");
 const fs = require("fs-extra");
-const { GlobalVariable } = require("./globalVariable");
 
 // 日志相关工具函数
 function logInfo(message) {
@@ -30,13 +29,28 @@ function writeLine(msg1, msg2 = "", color = "blue") {
 }
 
 // 流式输出
-async function streamOutput(text, speed = 30, color = "#9bed7f") {
-  for (const char of text) {
-    process.stdout.write(chalk.hex(color)(char));
-    await delay(speed + Math.random() * 20);
-  }
+async function streamOutput(text, color = "#9bed7f") {
+  process.stdout.write(chalk.hex(color)(text));
+}
+
+// 流式换行
+async function streamLineBreak() {
   process.stdout.write("\n");
 }
+
+function objStrToObj(str) {
+  try {
+    if (typeof str === 'string') {
+      return eval(`(${str})`);
+    } else {
+      return str
+    }
+  } catch (error) {
+    throw new Error(`对象转换失败：${error.message}`);
+  }
+}
+
+
 
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -82,9 +96,9 @@ function addExtensionToConfig(fileName) {
     const files = traverseFiles()
     const jsFiles = files.filter((file) => file.endsWith(".js") || file.endsWith(".cjs"));
     jsFiles.forEach((jsFile) => {
-      // 读取文件，查询文件内是否存在‘toolDescriptions’和‘toolFunctions’
+      // 读取文件，查询文件内是否存在‘descriptions’和‘functions’
       const fileContent = fs.readFileSync(jsFile, "utf-8");
-      if (fileContent.includes("toolDescriptions") && fileContent.includes("toolFunctions")) {
+      if (fileContent.includes("descriptions") && fileContent.includes("functions")) {
         addExtensionToConfig(jsFile);
       }
     });
@@ -225,6 +239,11 @@ function traverseFiles() {
   }
 }
 
+// 获取配置文件所在目录
+function getConfigPath() {
+  return path.join(os.homedir(), ".ai-cmd.config.js");
+}
+
 module.exports = {
   logInfo,
   logSuccess,
@@ -232,7 +251,11 @@ module.exports = {
   loading,
   writeLine,
   streamOutput,
+  streamLineBreak,
   addExtensionToConfig,
   removeExtensionFromConfig,
   viewExtensionsFromConfig,
+  objStrToObj,
+  delay,
+  getConfigPath
 };
