@@ -92,10 +92,10 @@ class ExtensionManager {
       }
       const fileNames = fs.readdirSync(dirPath)
       for (const fileName of fileNames) {
-        // 如果是目录且目录名称前缀是"@deepfish/"，则认为是扩展模块
+        // 如果是目录且目录名称前缀是"deepfish-"，则认为是扩展模块
         const extensionDir = path.resolve(dirPath, fileName)
         if (
-          fileName === '@deepfish' &&
+          fileName.startsWith('deepfish-') && fileName !== 'deepfish-ai' && 
           fs.statSync(extensionDir).isDirectory()
         ) {
           const subDirNames = fs.readdirSync(extensionDir)

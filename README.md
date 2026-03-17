@@ -36,8 +36,19 @@
 
 ## 1. Introduction
 
-An AI command-line tool that converts natural language instructions into operating system commands or file operation commands. Supports DeepSeek, Ollama, and other models compatible with the OpenAI API specification.
-[Extensions](https://github.com/qq306863030/deepfish-extensions)
+An efficient and convenient AI-driven command-line tool designed to break down the barrier between natural language and operating system commands or file operation instructions. It enables non-professional developers to quickly generate directly executable operation instructions through simple natural language descriptions, significantly improving terminal operation efficiency.
+Core Features:
+
+- Multi-model Compatibility: Seamlessly supports DeepSeek, Ollama, and all AI models that comply with the OpenAI API specification. It can be flexibly switched according to needs to adapt to instruction generation requirements in different scenarios.
+
+- Natural Language to Instructions: Precisely parses natural language requirements and automatically converts them into corresponding operating system commands (such as Linux, Windows, and macOS terminal commands) and file operation instructions (such as creating, deleting, and modifying files/directories), eliminating the need to manually write complex commands.
+
+- Highly Extensible: Supports expanding functional boundaries through an extension mechanism. In addition to basic terminal and file operations, it can easily implement complex tasks such as translation, novel writing, file format conversion, and data processing to meet diverse usage needs.
+
+- AI Automatic Extension Generation: There is no need to manually develop complex extension tools. Custom extensions can be directly generated through AI, reducing the threshold for extension development and making function expansion more efficient and flexible.[Extensions-Example](https://github.com/qq306863030/deepfish-extensions)
+
+Suitable for various groups such as developers, operation and maintenance personnel, and daily terminal users. Whether it is quickly executing terminal operations, batch processing files, or realizing personalized needs through extensions, this tool can simplify the operation process, improve work efficiency, and empower every terminal operation with AI.
+
 
 ## 2. Installation
 
@@ -49,7 +60,7 @@ An AI command-line tool that converts natural language instructions into operati
 ### Installation via npm
 
 ```bash
-npm install -g deepfish
+npm install -g deepfish-ai
 ```
 
 ### Installation from Source
@@ -273,8 +284,8 @@ module.exports = {
 
 **Method 3: Automatic Scanning**
 
-The program automatically scans the following directories for directories starting with "@deepfish/" on startup.
-1. The npm global node_modules directory (extensions can be installed via `npm install -g @deepfish/xxxx`)
+The program automatically scans the following directories for directories starting with "deepfish-" on startup.
+1. The npm global node_modules directory (extensions can be installed via `npm install -g deepfish-xxx`)
 2. The node_modules directory in the current working directory
 3. The current working directory
 
