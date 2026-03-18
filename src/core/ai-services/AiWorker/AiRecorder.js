@@ -11,7 +11,7 @@ const fs = require("fs-extra");
 const path = require("path");
 const inquirer = require("inquirer");
 const dayjs = require("dayjs");
-const { GlobalVariable } = require("../../globalVariable");
+const { GlobalVariable } = require("../../GlobalVariable");
 
 class AiRecorder {
   constructor(aiCli) {
@@ -63,7 +63,6 @@ class AiRecorder {
       ]);
       if (answer.recover) {
         return {
-          goal: recordData.goal,
           messages: recordData.messages,
         };
       } else {
@@ -87,7 +86,7 @@ class AiRecorder {
 
       try {
         fs.ensureDirSync(logDir);
-        if (typeof content === "object") {
+        if (typeof message === "object" && !Array.isArray(message)) {
           message = JSON.stringify(message);
         } else if (Array.isArray(message)) {
           message = '###压缩上下文###' + "\n" + JSON.stringify(message);

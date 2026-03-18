@@ -10,7 +10,7 @@
 const { cloneDeep } = require('lodash')
 const { logError, logInfo } = require('../../utils')
 const { aiRequestSingle } = require('./AiTools')
-const { GlobalVariable } = require('../../globalVariable')
+const { GlobalVariable } = require('../../GlobalVariable')
 
 class AIMessageManager {
   aiClient
