@@ -310,16 +310,28 @@ const configCommand = program
 
 configCommand
   .command("edit")
-  .description("Edit configuration file with notepad")
+  .description("Edit configuration file with default editor")
   .action(async () => {
     if (fs.existsSync(userConfigPath)) {
-      // File exists, open for editing
       const { exec } = require("child_process");
-      exec(`notepad "${userConfigPath}"`, (error) => {
-      if (error) {
-        logError("Error opening configuration file:", error.message);
+      const platform = process.platform;
+
+      let openCommand;
+      if (process.env.EDITOR) {
+        openCommand = `${process.env.EDITOR} "${userConfigPath}"`;
+      } else if (platform === "darwin") {
+        openCommand = `open -e "${userConfigPath}"`;
+      } else if (platform === "win32") {
+        openCommand = `notepad "${userConfigPath}"`;
+      } else {
+        openCommand = `xdg-open "${userConfigPath}"`;
       }
-    });
+
+      exec(openCommand, (error) => {
+        if (error) {
+          logError("Error opening configuration file:", error.message);
+        }
+      });
     } else {
       // File doesn't exist, prompt to create
       logError("Configuration file not initialized");
